@@ -5,11 +5,13 @@ use speedy2d::color::Color;
 use speedy2d::dimen::*;
 use speedy2d::window::{WindowHandler, WindowHelper};
 use speedy2d::Graphics2D;
+use watch::Watch;
 use world::traits::*;
 
 pub mod assets;
 pub mod controls;
 pub mod player;
+pub mod watch;
 pub mod world;
 
 fn main() {
@@ -38,6 +40,7 @@ struct GarbageCollector3 {
 
     world: world::World,
     player: Player,
+    watch: Watch,
 }
 
 impl GarbageCollector3 {
@@ -50,6 +53,7 @@ impl GarbageCollector3 {
 
             world: world::World::load(),
             player: Player::new(Vec2::ZERO),
+            watch: Watch::new(),
         }
     }
 }
@@ -68,7 +72,11 @@ impl WindowHandler for GarbageCollector3 {
         self.stopwatch = speedy2d::time::Stopwatch::new().unwrap();
         let level = &self.world.level_0;
 
-        self.player.update(delta_time, level, &self.controls);
+        if !self.watch.open {
+            self.player.update(delta_time, level, &self.controls);
+        }
+        self.watch.update(delta_time, &self.controls);
+        self.controls.reset();
 
         let scale = helper.get_size_pixels().y as f32 / 256.0;
         let screen_size = helper.get_size_pixels().into_f32() / scale;
@@ -93,6 +101,7 @@ impl WindowHandler for GarbageCollector3 {
         camera.graphics.clear_screen(level.bg_color);
         camera.draw_autotile(assets, &level.solid);
         self.player.draw(&mut camera, assets);
+        self.watch.draw(helper, &mut camera, assets);
         helper.request_redraw();
     }
 
@@ -140,6 +149,7 @@ impl Camera<'_> {
         pos *= self.scale;
         pos = Vec2::new(pos.x.floor(), pos.y.floor());
         let size = tile_size.into_f32() * self.scale;
+        let size = Vec2::new(size.x.ceil(), size.y.ceil());
         let mut tile_size = tile_size.into_f32();
         tile_size.x /= image.size().x as f32;
         tile_size.y /= image.size().y as f32;

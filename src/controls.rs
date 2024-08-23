@@ -8,8 +8,18 @@ pub struct Controls {
 }
 
 impl Controls {
+    pub fn reset(&mut self) {
+        self.jpressed.clear();
+    }
+
     pub fn pressed(&self, virtual_key_code: VirtualKeyCode) -> bool {
         self.pressed
+            .get(&virtual_key_code)
+            .is_some_and(|pressed| *pressed)
+    }
+
+    pub fn jpressed(&self, virtual_key_code: VirtualKeyCode) -> bool {
+        self.jpressed
             .get(&virtual_key_code)
             .is_some_and(|pressed| *pressed)
     }
@@ -31,5 +41,9 @@ impl Controls {
             || self.pressed(VirtualKeyCode::W)
             || self.pressed(VirtualKeyCode::Up)
             || self.pressed(VirtualKeyCode::K)
+    }
+
+    pub fn watch_toggle(&self) -> bool {
+        self.jpressed(VirtualKeyCode::Tab)
     }
 }

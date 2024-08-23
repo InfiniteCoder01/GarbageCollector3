@@ -19,6 +19,7 @@ pub struct Player {
     pub velocity: Vec2,
     pub position: Vec2,
     pub grounded: bool,
+    pub sliding: bool,
 
     pub last_grounded: bool,
     pub flip: bool,
@@ -45,6 +46,7 @@ impl Player {
             velocity: Vec2::ZERO,
             position,
             grounded: false,
+            sliding: false,
 
             last_grounded: false,
             flip: false,
@@ -59,40 +61,60 @@ impl Player {
 
     pub fn update(&mut self, delta_time: f32, level: &world::Level, controls: &Controls) {
         let key_dir = controls.right() as i32 - controls.left() as i32;
-        let mut target_velocity = 0.0;
-        // if self.grounded {
-        target_velocity = key_dir as f32 * 128.0;
-        // }
+        let target_velocity = key_dir as f32 * 196.0;
 
-        let blend = 1.0 - 0.005_f32.powf(delta_time);
-        self.velocity.x += (target_velocity - self.velocity.x) * blend;
+        if self.grounded {
+            let blend = 1.0
+                - (0.005_f32 * if self.animation != "kick" { 4.0 } else { 1.0 }).powf(delta_time);
+            self.velocity.x += (target_velocity - self.velocity.x) * blend;
+        }
 
-        self.velocity.y += 9.8 * 32.0 * delta_time;
-        if self.grounded && controls.jump() {
-            self.velocity.y = -200.0;
-            self.transition("jump");
+        self.velocity.y += 18.0 * 32.0 * delta_time;
+        if self.sliding {
+            self.velocity.y = self.velocity.y.min(48.0);
+        }
+        if (self.grounded || self.sliding) && controls.jump() {
+            if self.animation == "slide" {
+                self.velocity.x = self.velocity.x.signum() as f32 * -64.0;
+                self.flip = self.velocity.x < 0.0;
+                self.velocity.y = -256.0;
+                self.transition("kick");
+            } else {
+                self.velocity.y = -200.0;
+                self.transition("jump");
+            }
         }
 
         let motion = self.velocity * delta_time;
         self.last_grounded = self.grounded;
         self.grounded = false;
+        self.sliding = false;
         self.move_in_steps(level, Vec2::new_x(motion.x));
         self.move_in_steps(level, Vec2::new_y(motion.y));
 
         if key_dir != 0 {
-            self.flip = key_dir < 0;
+            if self.animation == "kick" {
+                if (self.velocity.x < 0.0) != self.flip {
+                    self.transition("fall");
+                }
+                self.flip = self.velocity.x < 0.0;
+            } else {
+                self.flip = key_dir < 0;
+            }
         }
 
         let mut animation_speed = 7.0;
         if self.animation == "land" {
-            // Wait for land to be over
+            // Wait for land animation to end
+        } else if self.sliding {
+            // *Sliding*
         } else if !self.grounded {
             if self.velocity.y > 0.0 {
                 self.transition("fall");
             }
-        } else if self.velocity.x.abs() > 70.0 || key_dir != 0 {
+        } else if self.velocity.x.abs() > 70.0 || (key_dir != 0 && self.velocity.x.abs() > 10.0) {
             self.transition("run");
-            animation_speed = self.velocity.x.abs() * 0.1;
+            animation_speed = self.velocity.x.abs() * 0.06;
         } else {
             if self.animation != "run" || (self.frame as u32) & 0b010 == 0 {
                 self.transition("idle");
@@ -151,7 +173,10 @@ impl Player {
             if self.collides(level) {
                 self.position -= dir * step;
                 if motion.x != 0.0 {
-                    self.velocity.x = 0.0;
+                    if !self.last_grounded {
+                        self.sliding = true;
+                        self.transition("slide");
+                    }
                 }
                 if motion.y != 0.0 {
                     self.velocity.y = 0.0;
