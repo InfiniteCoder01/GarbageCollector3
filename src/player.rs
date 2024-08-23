@@ -20,6 +20,7 @@ pub struct Player {
     pub velocity: Vec2,
     pub position: Vec2,
     pub grounded: bool,
+    pub slide_timeout: f32,
 
     pub last_grounded: bool,
     pub flip: bool,
@@ -46,6 +47,7 @@ impl Player {
             velocity: Vec2::ZERO,
             position,
             grounded: false,
+            slide_timeout: 0.0,
 
             last_grounded: false,
             flip: false,
@@ -62,10 +64,13 @@ impl Player {
         let key_dir = controls.right() as i32 - controls.left() as i32;
         let target_velocity = key_dir as f32 * 196.0;
 
+        if self.slide_timeout > 0.0 {
+            self.slide_timeout -= delta_time;
+        }
         if self.grounded && self.animation != "slide" {
             let blend = 1.0 - 0.005_f32.powf(delta_time);
             self.velocity.x += (target_velocity - self.velocity.x) * blend;
-            if controls.slide() && self.velocity.x.abs() > 64.0 {
+            if controls.slide() && self.velocity.x.abs() > 128.0 && self.slide_timeout <= 0.0 {
                 self.animation = "slide";
                 if self.collides(level) {
                     self.transition("idle")
@@ -74,12 +79,17 @@ impl Player {
                 }
             }
         } else if self.animation == "slide" {
-            if !controls.slide() || !self.grounded {
+            self.velocity.x += self.velocity.x * (0.6_f32.powf(delta_time) - 1.0);
+            if !controls.slide() || !self.grounded || self.velocity.x.abs() < 60.0 {
                 self.animation = "idle";
                 if self.collides(level) {
                     self.animation = "slide";
+                    self.velocity.x = self.velocity.x.signum() * 60.0;
                 } else {
                     self.transition("idle");
+                    if controls.slide() {
+                        self.slide_timeout = 0.6;
+                    }
                 }
             }
         }
