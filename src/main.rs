@@ -127,6 +127,14 @@ impl WindowHandler for GarbageCollector3 {
             self.controls.pressed.insert(virtual_key_code, false);
         }
     }
+
+    fn on_keyboard_modifiers_changed(
+        &mut self,
+        helper: &mut WindowHelper<()>,
+        state: speedy2d::window::ModifiersState,
+    ) {
+        self.controls.mods = state.clone();
+    }
 }
 
 pub struct Camera<'a> {

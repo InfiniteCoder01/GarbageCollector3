@@ -5,6 +5,7 @@ use std::collections::HashMap;
 pub struct Controls {
     pub pressed: HashMap<VirtualKeyCode, bool>,
     pub jpressed: HashMap<VirtualKeyCode, bool>,
+    pub mods: speedy2d::window::ModifiersState,
 }
 
 impl Controls {
@@ -41,6 +42,13 @@ impl Controls {
             || self.pressed(VirtualKeyCode::W)
             || self.pressed(VirtualKeyCode::Up)
             || self.pressed(VirtualKeyCode::K)
+    }
+
+    pub fn slide(&self) -> bool {
+        self.mods.shift()
+            || self.pressed(VirtualKeyCode::S)
+            || self.pressed(VirtualKeyCode::Down)
+            || self.pressed(VirtualKeyCode::J)
     }
 
     pub fn watch_toggle(&self) -> bool {

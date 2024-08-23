@@ -10,6 +10,7 @@ const FRAMES: &[(&'static str, u32)] = &[
     ("land", 2),
     ("wall_slide", 1),
     ("kick", 1),
+    ("slide", 1),
 ];
 
 pub struct Player {
@@ -19,7 +20,6 @@ pub struct Player {
     pub velocity: Vec2,
     pub position: Vec2,
     pub grounded: bool,
-    pub sliding: bool,
 
     pub last_grounded: bool,
     pub flip: bool,
@@ -46,7 +46,6 @@ impl Player {
             velocity: Vec2::ZERO,
             position,
             grounded: false,
-            sliding: false,
 
             last_grounded: false,
             flip: false,
@@ -63,16 +62,33 @@ impl Player {
         let key_dir = controls.right() as i32 - controls.left() as i32;
         let target_velocity = key_dir as f32 * 196.0;
 
-        if self.grounded {
+        if self.grounded && self.animation != "slide" {
             let blend = 1.0 - 0.005_f32.powf(delta_time);
             self.velocity.x += (target_velocity - self.velocity.x) * blend;
+            if controls.slide() && self.velocity.x.abs() > 64.0 {
+                self.animation = "slide";
+                if self.collides(level) {
+                    self.transition("idle")
+                } else {
+                    self.transition("slide");
+                }
+            }
+        } else if self.animation == "slide" {
+            if !controls.slide() || !self.grounded {
+                self.animation = "idle";
+                if self.collides(level) {
+                    self.animation = "slide";
+                } else {
+                    self.transition("idle");
+                }
+            }
         }
 
         self.velocity.y += 18.0 * 32.0 * delta_time;
-        if self.sliding {
+        if self.animation == "wall_slide" {
             self.velocity.y = self.velocity.y.min(48.0);
         }
-        if (self.grounded || self.sliding) && controls.jump() {
+        if (self.grounded || self.animation == "wall_slide") && controls.jump() {
             if self.animation == "wall_slide" {
                 self.velocity.x = self.velocity.x.signum() as f32 * -64.0;
                 self.flip = self.velocity.x < 0.0;
@@ -87,7 +103,6 @@ impl Player {
         let motion = self.velocity * delta_time;
         self.last_grounded = self.grounded;
         self.grounded = false;
-        self.sliding = false;
         self.move_in_steps(level, Vec2::new_x(motion.x));
         self.move_in_steps(level, Vec2::new_y(motion.y));
 
@@ -97,7 +112,7 @@ impl Player {
                     self.transition("fall");
                 }
                 self.flip = self.velocity.x < 0.0;
-            } else if self.animation == "wall_slide" {
+            } else if self.animation == "wall_slide" || self.animation == "slide" {
                 self.flip = self.velocity.x < 0.0;
             } else {
                 self.flip = key_dir < 0;
@@ -107,7 +122,7 @@ impl Player {
         let mut animation_speed = 7.0;
         if self.animation == "land" {
             // Wait for land animation to end
-        } else if self.sliding {
+        } else if self.animation == "wall_slide" || self.animation == "slide" {
             // *Sliding*
         } else if !self.grounded {
             if self.velocity.y > 0.0 {
@@ -175,8 +190,9 @@ impl Player {
                 self.position -= dir * step;
                 if motion.x != 0.0 {
                     if !self.last_grounded {
-                        self.sliding = true;
                         self.transition("wall_slide");
+                    } else if self.animation == "slide" {
+                        self.transition("idle");
                     }
                 }
                 if motion.y != 0.0 {
@@ -194,13 +210,18 @@ impl Player {
     }
 
     pub fn rect(&self, grid_size: UVec2) -> (IVec2, UVec2) {
+        let (x_range, y_range) = if self.animation == "slide" {
+            ((0.3, 1.0), (0.6, 1.0))
+        } else {
+            ((0.4, 0.6), (0.0, 1.0))
+        };
         let tl = IVec2::new(
-            ((self.position.x + self.size.x as f32 * 0.4) / grid_size.x as f32).floor() as _,
-            (self.position.y / grid_size.y as f32).floor() as _,
+            ((self.position.x + self.size.x as f32 * x_range.0) / grid_size.x as f32).floor() as _,
+            ((self.position.y + self.size.y as f32 * y_range.0) / grid_size.y as f32).floor() as _,
         );
         let br = IVec2::new(
-            ((self.position.x + self.size.x as f32 * 0.6) / grid_size.x as f32).ceil() as _,
-            ((self.position.y + self.size.y as f32) / grid_size.y as f32).ceil() as _,
+            ((self.position.x + self.size.x as f32 * x_range.1) / grid_size.x as f32).ceil() as _,
+            ((self.position.y + self.size.y as f32 * y_range.1) / grid_size.y as f32).ceil() as _,
         );
         let size = br - tl;
         (tl, size.into_u32())
