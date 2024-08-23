@@ -8,7 +8,7 @@ const FRAMES: &[(&'static str, u32)] = &[
     ("jump", 1),
     ("fall", 1),
     ("land", 2),
-    ("slide", 1),
+    ("wall_slide", 1),
     ("kick", 1),
 ];
 
@@ -64,8 +64,7 @@ impl Player {
         let target_velocity = key_dir as f32 * 196.0;
 
         if self.grounded {
-            let blend = 1.0
-                - (0.005_f32 * if self.animation != "kick" { 4.0 } else { 1.0 }).powf(delta_time);
+            let blend = 1.0 - 0.005_f32.powf(delta_time);
             self.velocity.x += (target_velocity - self.velocity.x) * blend;
         }
 
@@ -74,7 +73,7 @@ impl Player {
             self.velocity.y = self.velocity.y.min(48.0);
         }
         if (self.grounded || self.sliding) && controls.jump() {
-            if self.animation == "slide" {
+            if self.animation == "wall_slide" {
                 self.velocity.x = self.velocity.x.signum() as f32 * -64.0;
                 self.flip = self.velocity.x < 0.0;
                 self.velocity.y = -256.0;
@@ -97,6 +96,8 @@ impl Player {
                 if (self.velocity.x < 0.0) != self.flip {
                     self.transition("fall");
                 }
+                self.flip = self.velocity.x < 0.0;
+            } else if self.animation == "wall_slide" {
                 self.flip = self.velocity.x < 0.0;
             } else {
                 self.flip = key_dir < 0;
@@ -175,7 +176,7 @@ impl Player {
                 if motion.x != 0.0 {
                     if !self.last_grounded {
                         self.sliding = true;
-                        self.transition("slide");
+                        self.transition("wall_slide");
                     }
                 }
                 if motion.y != 0.0 {
