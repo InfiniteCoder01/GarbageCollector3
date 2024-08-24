@@ -41,6 +41,7 @@ struct GarbageCollector3 {
     camera: Vec2,
     controls: Controls,
 
+    level_index: usize,
     world: world::World,
     player: Player,
     watch: Watch,
@@ -48,14 +49,17 @@ struct GarbageCollector3 {
 
 impl GarbageCollector3 {
     fn new() -> Self {
+        let world = world::World::load();
+        let player = Player::new(get_player_start_position(&world.level_0.marks));
         Self {
             stopwatch: speedy2d::time::Stopwatch::new().unwrap(),
             assets: None,
             camera: Vec2::ZERO,
             controls: Controls::default(),
 
-            world: world::World::load(),
-            player: Player::new(Vec2::ZERO),
+            level_index: 0,
+            world,
+            player,
             watch: Watch::default(),
         }
     }
@@ -73,14 +77,25 @@ impl WindowHandler for GarbageCollector3 {
         });
         let delta_time = self.stopwatch.secs_elapsed() as f32;
         self.stopwatch = speedy2d::time::Stopwatch::new().unwrap();
-        let level = &self.world.level_0;
-
-        if !self.watch.open {
-            self.player.update(delta_time, level, &self.controls);
-        }
+        let level = &self.world[self.level_index];
 
         let scale = helper.get_size_pixels().y as f32 / 256.0;
         let screen_size = helper.get_size_pixels().into_f32() / scale;
+        if !self.watch.open {
+            self.player.update(delta_time, level, &self.controls);
+            for mark in level.marks.entities() {
+                if matches!(mark.entity, world::Entity::EndOfTheLevel(_))
+                    && self.player.overlaps(mark)
+                {
+                    self.level_index += 1;
+                    self.player.position =
+                        get_player_start_position(&self.world[self.level_index].marks);
+                    self.camera = self.player.position + self.player.size.into_f32() / 2.0
+                        - screen_size / 2.0;
+                }
+            }
+        }
+
         self.camera += ((self.player.position + self.player.size.into_f32() / 2.0
             - screen_size / 2.0)
             - self.camera)
@@ -216,6 +231,15 @@ impl Camera<'_> {
             }
         }
     }
+}
+
+pub fn get_player_start_position(marks: &world::Marks) -> Vec2 {
+    for mark in marks.entities() {
+        if matches!(mark.entity, world::Entity::PlayerStartPosition(_)) {
+            return mark.position;
+        }
+    }
+    Vec2::ZERO
 }
 
 impl<T> world::VectorImpl for Vector2<T>

@@ -111,6 +111,9 @@ impl Player {
         self.grounded = false;
         self.move_in_steps(level, Vec2::new_x(motion.x));
         self.move_in_steps(level, Vec2::new_y(motion.y));
+        while self.collides(level) {
+            self.position.y -= 0.1;
+        }
 
         if key_dir != 0 {
             if self.animation == "kick" {
@@ -156,9 +159,19 @@ impl Player {
 
     pub fn collides(&self, level: &world::Level) -> bool {
         let (tl, size) = self.rect(level.solid.grid_size());
+        let br = tl + size.into_i32();
+        if tl.x < 0
+            || tl.y < 0
+            || br.x > level.solid.size.x as i32
+            || br.y > level.solid.size.y as i32
+        {
+            return true;
+        }
         for (_, tile) in level.solid.rect(tl, size) {
-            if let Some(world::SolidTile::Ground) = tile {
-                return true;
+            match tile {
+                Some(world::SolidTile::Ground) => return true,
+                Some(world::SolidTile::Lamp) => return true,
+                _ => (),
             }
         }
         false
@@ -211,7 +224,7 @@ impl Player {
 
     pub fn rect(&self, grid_size: UVec2) -> (IVec2, UVec2) {
         let (x_range, y_range) = if self.animation == "slide" {
-            ((0.3, 1.0), (0.6, 1.0))
+            ((0.3, 1.0), (0.8, 1.0))
         } else {
             ((0.4, 0.6), (0.0, 1.0))
         };
@@ -237,5 +250,12 @@ impl Player {
             self.flip,
             false,
         )
+    }
+
+    pub fn overlaps(&self, entity: &world::EntityObject) -> bool {
+        self.position.x + self.size.x as f32 > entity.top_left().x
+            && self.position.y + self.size.y as f32 > entity.top_left().y
+            && self.position.x < entity.top_left().x + entity.size.x as f32
+            && self.position.y < entity.top_left().y + entity.size.y as f32
     }
 }
