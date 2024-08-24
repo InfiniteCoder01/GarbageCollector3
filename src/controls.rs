@@ -1,16 +1,32 @@
-use speedy2d::window::VirtualKeyCode;
+use speedy2d::dimen::*;
+use speedy2d::window::{MouseButton, VirtualKeyCode};
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Clone, Debug)]
 pub struct Controls {
     pub pressed: HashMap<VirtualKeyCode, bool>,
     pub jpressed: HashMap<VirtualKeyCode, bool>,
     pub mods: speedy2d::window::ModifiersState,
+    pub mouse_pos: Vec2,
+    pub mouse_buttons: HashMap<MouseButton, bool>,
+}
+
+impl Default for Controls {
+    fn default() -> Self {
+        Self {
+            pressed: HashMap::new(),
+            jpressed: HashMap::new(),
+            mods: Default::default(),
+            mouse_pos: Vec2::ZERO,
+            mouse_buttons: HashMap::new(),
+        }
+    }
 }
 
 impl Controls {
     pub fn reset(&mut self) {
         self.jpressed.clear();
+        self.mouse_buttons.clear();
     }
 
     pub fn pressed(&self, virtual_key_code: VirtualKeyCode) -> bool {
@@ -52,6 +68,12 @@ impl Controls {
     }
 
     pub fn watch_toggle(&self) -> bool {
-        self.jpressed(VirtualKeyCode::Tab)
+        self.jpressed(VirtualKeyCode::Tab) || self.jpressed(VirtualKeyCode::Grave)
+    }
+
+    pub fn click(&self) -> bool {
+        self.mouse_buttons
+            .get(&MouseButton::Left)
+            .is_some_and(|pressed| *pressed)
     }
 }

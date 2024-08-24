@@ -2,7 +2,9 @@ use speedy2d::image::ImageHandle;
 use speedy2d::Graphics2D;
 
 pub struct Assets {
+    pub font: speedy2d::font::Font,
     pub tileset: ImageHandle,
+
     pub watch: WatchAssets,
     pub player: PlayerAssets,
 }
@@ -13,14 +15,18 @@ pub struct PlayerAssets {
 
 pub struct WatchAssets {
     pub image: ImageHandle,
+    pub icons: ImageHandle,
 }
 
 impl Assets {
     pub fn load(graphics: &mut Graphics2D) -> Self {
         Self {
+            font: speedy2d::font::Font::new(include_bytes!("../assets/Minecraft.ttf")).unwrap(),
             tileset: load_image(graphics, include_bytes!("../assets/tileset.png")),
+
             watch: WatchAssets {
                 image: load_image(graphics, include_bytes!("../assets/watch/image.png")),
+                icons: load_image(graphics, include_bytes!("../assets/watch/icons.png")),
             },
             player: PlayerAssets {
                 image: load_image(graphics, include_bytes!("../assets/player/image.png")),

@@ -5,5 +5,11 @@ edition = "2021"
 
 [dependencies]
 console_error_panic_hook = "0.1.7"
-speedy2d = "2.1.0"
 wasm-logger = "0.2.0"
+speedy2d = "2.1.0"
+
+rustpython = { version = "0.4.0", default-features = false, features = [
+    "freeze-stdlib",
+    "stdlib",
+] }
+rustpython-vm = "0.4.0"

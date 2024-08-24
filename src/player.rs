@@ -1,8 +1,6 @@
-use speedy2d::image::ImageHandle;
-
 use super::*;
 
-const FRAMES: &[(&'static str, u32)] = &[
+const FRAMES: &[(&str, u32)] = &[
     ("idle", 1),
     ("run", 8),
     ("jump", 1),
@@ -29,7 +27,6 @@ pub struct Player {
     pub looped: bool,
 
     pub size: UVec2,
-    image: Option<ImageHandle>,
 }
 
 impl Player {
@@ -56,7 +53,6 @@ impl Player {
             looped: true,
 
             size: UVec2::ZERO,
-            image: None,
         }
     }
 
@@ -100,7 +96,7 @@ impl Player {
         }
         if (self.grounded || self.animation == "wall_slide") && controls.jump() {
             if self.animation == "wall_slide" {
-                self.velocity.x = self.velocity.x.signum() as f32 * -64.0;
+                self.velocity.x = self.velocity.x.signum() * -64.0;
                 self.flip = self.velocity.x < 0.0;
                 self.velocity.y = -256.0;
                 self.transition("kick");
@@ -141,10 +137,8 @@ impl Player {
         } else if self.velocity.x.abs() > 70.0 || (key_dir != 0 && self.velocity.x.abs() > 10.0) {
             self.transition("run");
             animation_speed = self.velocity.x.abs() * 0.06;
-        } else {
-            if self.animation != "run" || (self.frame as u32) & 0b010 == 0 {
-                self.transition("idle");
-            }
+        } else if self.animation != "run" || (self.frame as u32) & 0b010 == 0 {
+            self.transition("idle");
         }
         self.frame += delta_time * animation_speed;
         let frame_count = self.frames[self.animation].clone().count() as f32;
@@ -163,9 +157,8 @@ impl Player {
     pub fn collides(&self, level: &world::Level) -> bool {
         let (tl, size) = self.rect(level.solid.grid_size());
         for (_, tile) in level.solid.rect(tl, size) {
-            match tile {
-                Some(world::SolidTile::Ground) => return true,
-                _ => (),
+            if let Some(world::SolidTile::Ground) = tile {
+                return true;
             }
         }
         false
@@ -176,10 +169,7 @@ impl Player {
             return;
         }
         self.animation = animation;
-        self.looped = match animation {
-            "jump" | "land" | "kick" => false,
-            _ => true,
-        };
+        self.looped = !matches!(animation, "jump" | "land" | "kick");
         self.frame = 0.0;
     }
 
@@ -240,6 +230,7 @@ impl Player {
     pub fn draw(&self, camera: &mut Camera, assets: &Assets) {
         camera.draw_tile(
             self.position,
+            false,
             UVec2::new_x(self.frame as u32 + self.frames[self.animation].start),
             self.size,
             &assets.player.image,

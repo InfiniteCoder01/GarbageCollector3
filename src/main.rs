@@ -1,3 +1,6 @@
+#![feature(proc_macro_hygiene)]
+#![feature(custom_inner_attributes)]
+
 use assets::Assets;
 use controls::Controls;
 use player::Player;
@@ -53,7 +56,7 @@ impl GarbageCollector3 {
 
             world: world::World::load(),
             player: Player::new(Vec2::ZERO),
-            watch: Watch::new(),
+            watch: Watch::default(),
         }
     }
 }
@@ -75,8 +78,6 @@ impl WindowHandler for GarbageCollector3 {
         if !self.watch.open {
             self.player.update(delta_time, level, &self.controls);
         }
-        self.watch.update(delta_time, &self.controls);
-        self.controls.reset();
 
         let scale = helper.get_size_pixels().y as f32 / 256.0;
         let screen_size = helper.get_size_pixels().into_f32() / scale;
@@ -95,13 +96,15 @@ impl WindowHandler for GarbageCollector3 {
         let mut camera = Camera {
             graphics,
             scale,
-            position: self.camera.clone(),
+            position: self.camera,
         };
 
         camera.graphics.clear_screen(level.bg_color);
         camera.draw_autotile(assets, &level.solid);
         self.player.draw(&mut camera, assets);
-        self.watch.draw(helper, &mut camera, assets);
+        self.watch
+            .draw(helper, delta_time, &self.controls, &mut camera, assets);
+        self.controls.reset();
         helper.request_redraw();
     }
 
@@ -112,7 +115,7 @@ impl WindowHandler for GarbageCollector3 {
         _scancode: speedy2d::window::KeyScancode,
     ) {
         if let Some(virtual_key_code) = virtual_key_code {
-            self.controls.pressed.insert(virtual_key_code.clone(), true);
+            self.controls.pressed.insert(virtual_key_code, true);
             self.controls.jpressed.insert(virtual_key_code, true);
         }
     }
@@ -130,10 +133,22 @@ impl WindowHandler for GarbageCollector3 {
 
     fn on_keyboard_modifiers_changed(
         &mut self,
-        helper: &mut WindowHelper<()>,
+        _helper: &mut WindowHelper<()>,
         state: speedy2d::window::ModifiersState,
     ) {
         self.controls.mods = state.clone();
+    }
+
+    fn on_mouse_move(&mut self, _helper: &mut WindowHelper<()>, position: Vec2) {
+        self.controls.mouse_pos = position;
+    }
+
+    fn on_mouse_button_down(
+        &mut self,
+        _helper: &mut WindowHelper<()>,
+        button: speedy2d::window::MouseButton,
+    ) {
+        self.controls.mouse_buttons.insert(button, true);
     }
 }
 
@@ -144,16 +159,20 @@ pub struct Camera<'a> {
 }
 
 impl Camera<'_> {
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_tile(
         &mut self,
         mut pos: Vec2,
+        gui: bool,
         tile: UVec2,
         tile_size: UVec2,
         image: &speedy2d::image::ImageHandle,
         flip_h: bool,
         flip_v: bool,
     ) {
-        pos -= self.position;
+        if !gui {
+            pos -= self.position;
+        }
         pos *= self.scale;
         pos = Vec2::new(pos.x.floor(), pos.y.floor());
         let size = tile_size.into_f32() * self.scale;
@@ -187,6 +206,7 @@ impl Camera<'_> {
                         pos.x as f32 * layer.grid_size().x as f32,
                         pos.y as f32 * layer.grid_size().y as f32,
                     ),
+                    false,
                     tile.position,
                     layer.grid_size(),
                     &assets.tileset,

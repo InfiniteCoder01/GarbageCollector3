@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::match_single_binding)]
+#![allow(clippy::needless_return)]
 #![allow(redundant_semicolons)]
 
 pub trait ColorImpl {
