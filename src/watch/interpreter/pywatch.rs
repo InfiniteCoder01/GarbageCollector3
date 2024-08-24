@@ -65,6 +65,10 @@ impl Renderer {
                     position *= camera.scale;
                     let mut size = size.unwrap_or(image.size().into_f32());
                     size *= camera.scale;
+                    if let Some(uv) = uv {
+                        size.x *= uv.1.x - uv.0.x;
+                        size.y *= uv.1.y - uv.0.y;
+                    }
                     camera.graphics.draw_rectangle_image_subset_tinted(
                         Rect::new(position, position + size),
                         Color::WHITE,
@@ -107,6 +111,7 @@ impl Renderer {
 // * Py data types
 pub type PyImage = usize;
 
+#[derive(Clone, Debug)]
 pub struct PyVec2(Vec2);
 
 impl ToPyObject for PyVec2 {
@@ -166,6 +171,26 @@ impl Frame {
                 position: position.0,
                 size: None,
                 uv: None,
+            });
+    }
+
+    #[pymethod]
+    pub fn draw_image_pro(
+        &self,
+        position: PyVec2,
+        image: PyImage,
+        size: Option<PyVec2>,
+        uv_tl: PyVec2,
+        uv_br: PyVec2,
+    ) {
+        self.render_queue
+            .lock()
+            .unwrap()
+            .push(PyRenderInstruction::Image {
+                image,
+                position: position.0,
+                size: size.map(|size| size.0),
+                uv: Some((uv_tl.0, uv_br.0)),
             });
     }
 

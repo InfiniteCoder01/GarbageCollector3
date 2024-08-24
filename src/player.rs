@@ -64,9 +64,9 @@ impl Player {
             self.slide_timeout -= delta_time;
         }
         if self.grounded && self.animation != "slide" {
-            let blend = 1.0 - 0.005_f32.powf(delta_time);
+            let blend = 1.0 - 0.003_f32.powf(delta_time);
             self.velocity.x += (target_velocity - self.velocity.x) * blend;
-            if controls.slide() && self.velocity.x.abs() > 128.0 && self.slide_timeout <= 0.0 {
+            if controls.slide() && self.velocity.x.abs() > 180.0 && self.slide_timeout <= 0.0 {
                 self.animation = "slide";
                 if self.collides(level) {
                     self.transition("idle")
@@ -76,11 +76,11 @@ impl Player {
             }
         } else if self.animation == "slide" {
             self.velocity.x += self.velocity.x * (0.6_f32.powf(delta_time) - 1.0);
-            if !controls.slide() || !self.grounded || self.velocity.x.abs() < 60.0 {
+            if !controls.slide() || !self.grounded || self.velocity.x.abs() < 128.0 {
                 self.animation = "idle";
                 if self.collides(level) {
                     self.animation = "slide";
-                    self.velocity.x = self.velocity.x.signum() * 60.0;
+                    self.velocity.x = self.velocity.x.signum() * 128.0;
                 } else {
                     self.transition("idle");
                     if controls.slide() {
@@ -94,7 +94,10 @@ impl Player {
         if self.animation == "wall_slide" {
             self.velocity.y = self.velocity.y.min(48.0);
         }
-        if (self.grounded || self.animation == "wall_slide") && controls.jump() {
+        if (self.grounded || self.animation == "wall_slide")
+            && self.animation != "slide"
+            && controls.jump()
+        {
             if self.animation == "wall_slide" {
                 self.velocity.x = self.velocity.x.signum() * -64.0;
                 self.flip = self.velocity.x < 0.0;
@@ -109,6 +112,9 @@ impl Player {
         let motion = self.velocity * delta_time;
         self.last_grounded = self.grounded;
         self.grounded = false;
+        if self.animation == "wall_slide" {
+            self.animation = "idle";
+        }
         self.move_in_steps(level, Vec2::new_x(motion.x));
         self.move_in_steps(level, Vec2::new_y(motion.y));
         while self.collides(level) {
@@ -167,10 +173,14 @@ impl Player {
         {
             return true;
         }
-        for (_, tile) in level.solid.rect(tl, size) {
+        for (pos, tile) in level.solid.rect(tl, size) {
             match tile {
                 Some(world::SolidTile::Ground) => return true,
-                Some(world::SolidTile::Lamp) => return true,
+                Some(world::SolidTile::Lamp) => {
+                    if level.solid.get(pos - IVec2::new_y(1)) != Some(&world::SolidTile::Lamp) {
+                        return true;
+                    }
+                }
                 _ => (),
             }
         }

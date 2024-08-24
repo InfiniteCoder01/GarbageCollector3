@@ -115,7 +115,9 @@ impl WindowHandler for GarbageCollector3 {
         };
 
         camera.graphics.clear_screen(level.bg_color);
-        camera.draw_autotile(assets, &level.solid);
+        camera.draw_tiles(screen_size, assets, &level.background);
+        camera.draw_autotile(screen_size, assets, &level.solid);
+        camera.draw_tiles(screen_size, assets, &level.ambient_decorations);
         self.player.draw(&mut camera, assets);
         self.watch
             .draw(helper, delta_time, &self.controls, &mut camera, assets);
@@ -213,8 +215,9 @@ impl Camera<'_> {
         );
     }
 
-    pub fn draw_autotile(&mut self, assets: &Assets, layer: &impl AutoLayer) {
-        for (pos, tiles) in layer.autotile_rect(IVec2::ZERO, layer.size()) {
+    pub fn draw_autotile(&mut self, screen_size: Vec2, assets: &Assets, layer: &impl AutoLayer) {
+        let (tl, size) = self.view_rect(screen_size, layer.grid_size());
+        for (pos, tiles) in layer.autotile_rect(tl, size) {
             for tile in tiles {
                 self.draw_tile(
                     Vec2::new(
@@ -230,6 +233,39 @@ impl Camera<'_> {
                 )
             }
         }
+    }
+
+    pub fn draw_tiles(&mut self, screen_size: Vec2, assets: &Assets, layer: &impl Tiles) {
+        let (tl, size) = self.view_rect(screen_size, layer.grid_size());
+        for (pos, tile) in layer.rect(tl, size) {
+            if let Some(tile) = tile {
+                self.draw_tile(
+                    Vec2::new(
+                        pos.x as f32 * layer.grid_size().x as f32,
+                        pos.y as f32 * layer.grid_size().y as f32,
+                    ),
+                    false,
+                    tile.position,
+                    layer.grid_size(),
+                    &assets.tileset,
+                    tile.flip.horizontal(),
+                    tile.flip.vertical(),
+                )
+            }
+        }
+    }
+
+    pub fn view_rect(&self, screen_size: Vec2, grid_size: UVec2) -> (IVec2, UVec2) {
+        let tl = IVec2::new(
+            (self.position.x / grid_size.x as f32).floor() as _,
+            (self.position.y / grid_size.y as f32).floor() as _,
+        );
+        let br = IVec2::new(
+            ((self.position.x + screen_size.x) / grid_size.x as f32).ceil() as _,
+            ((self.position.y + screen_size.y) / grid_size.y as f32).ceil() as _,
+        );
+        let size = br - tl;
+        (tl, size.into_u32())
     }
 }
 
