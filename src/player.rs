@@ -250,7 +250,10 @@ impl Player {
                 }
                 if motion.y > 0.0 {
                     self.grounded = true;
-                    if !self.last_grounded {
+                    if !self.last_grounded
+                        && self.animation != "slide"
+                        && self.animation != "slide_start"
+                    {
                         self.transition("land");
                     }
                 }

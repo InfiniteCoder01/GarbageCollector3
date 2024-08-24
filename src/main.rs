@@ -4,6 +4,7 @@
 use assets::Assets;
 use controls::Controls;
 use player::Player;
+use rand::Rng;
 use speedy2d::color::Color;
 use speedy2d::dimen::*;
 use speedy2d::window::{WindowHandler, WindowHelper};
@@ -45,7 +46,8 @@ struct GarbageCollector3 {
     world: world::World,
     player: Player,
     watch: Watch,
-    // particles: Vec<Particle>,
+    particles: Vec<Particle>,
+    weather_particle_timer: f32,
 }
 
 impl GarbageCollector3 {
@@ -62,6 +64,8 @@ impl GarbageCollector3 {
             world,
             player,
             watch: Watch::default(),
+            particles: Vec::new(),
+            weather_particle_timer: 0.0,
         }
     }
 }
@@ -97,6 +101,11 @@ impl WindowHandler for GarbageCollector3 {
             }
         }
 
+        for particle in &mut self.particles {
+            particle.update(level, delta_time);
+        }
+        self.particles.retain(|particle| particle.lifetime > 0.0);
+
         self.camera += ((self.player.position + self.player.size.into_f32() / 2.0
             - screen_size / 2.0)
             - self.camera)
@@ -115,16 +124,43 @@ impl WindowHandler for GarbageCollector3 {
             position: self.camera,
         };
 
-        let weather = *watch::interpreter::pywatch::WEATHER.lock().unwrap();
-        camera.graphics.clear_screen(match weather {
-            interpreter::pywatch::Weather::Sunny => level.bg_color,
-            interpreter::pywatch::Weather::Rainy => Color::from_hex_rgb(0x9F9F9F),
-            interpreter::pywatch::Weather::Snowy => Color::from_hex_rgb(0xDADADA),
-        });
+        {
+            let weather = *watch::interpreter::pywatch::WEATHER.lock().unwrap();
+            camera.graphics.clear_screen(match weather {
+                interpreter::pywatch::Weather::Sunny => level.bg_color,
+                interpreter::pywatch::Weather::Rainy => Color::from_hex_rgb(0x9F9F9F),
+                interpreter::pywatch::Weather::Snowy => Color::from_hex_rgb(0xDADADA),
+            });
+
+            let (pps, particle_color) = match weather {
+                interpreter::pywatch::Weather::Rainy => (100.0, Color::from_hex_rgb(0x00057F)),
+                interpreter::pywatch::Weather::Snowy => (100.0, Color::from_hex_rgb(0xFFFFFF)),
+                _ => (0.0, Color::MAGENTA),
+            };
+            self.weather_particle_timer += delta_time;
+            while self.weather_particle_timer > 1.0 / pps {
+                self.weather_particle_timer -= 1.0 / pps;
+                self.particles.push(Particle::new(
+                    Vec2::new(
+                        rand::thread_rng().gen_range(0.0..level.pixel_size.x as f32),
+                        rand::thread_rng().gen_range(-20.0..20.0_f32),
+                    ),
+                    Vec2::ZERO,
+                    particle_color,
+                ));
+            }
+            if pps == 0.0 {
+                self.weather_particle_timer = 0.0;
+            }
+        }
+
         camera.draw_tiles(screen_size, assets, &level.background);
         camera.draw_autotile(screen_size, assets, &level.solid);
         camera.draw_tiles(screen_size, assets, &level.ambient_decorations);
         self.player.draw(&mut camera, assets);
+        for particle in &self.particles {
+            particle.draw(&mut camera);
+        }
         self.watch.draw(
             helper,
             delta_time,
@@ -178,6 +214,51 @@ impl WindowHandler for GarbageCollector3 {
         button: speedy2d::window::MouseButton,
     ) {
         self.controls.mouse_buttons.insert(button, true);
+    }
+}
+pub struct Particle {
+    position: Vec2,
+    velocity: Vec2,
+    color: Color,
+    lifetime: f32,
+}
+
+impl Particle {
+    pub fn new(position: Vec2, velocity: Vec2, color: Color) -> Self {
+        Self {
+            position,
+            velocity,
+            color,
+            lifetime: 5.0,
+        }
+    }
+
+    pub fn update(&mut self, level: &world::Level, delta_time: f32) {
+        self.position += self.velocity * delta_time;
+        self.velocity.y += 18.0 * 32.0 * delta_time;
+        self.velocity *= 0.9;
+        let tile_pos = IVec2::new(
+            (self.position.x / level.solid.grid_size().x as f32).floor() as i32,
+            (self.position.y / level.solid.grid_size().y as f32).floor() as i32,
+        );
+        if let Some(world::SolidTile::Ground) = level.solid.get(tile_pos) {
+            self.lifetime = -1.0
+        }
+        if let Some(tile) = level.background.get(tile_pos) {
+            if tile.position == UVec2::new(7, 1) {
+                self.lifetime = -1.0;
+            }
+        }
+        self.lifetime -= delta_time;
+    }
+
+    pub fn draw(&self, camera: &mut Camera) {
+        let position = (self.position - camera.position) * camera.scale;
+        let size = Vec2::new(1.0, 2.5) * camera.scale;
+        camera.graphics.draw_rectangle(
+            speedy2d::shape::Rect::new(position - size / 2.0, position + size / 2.0),
+            self.color,
+        );
     }
 }
 
