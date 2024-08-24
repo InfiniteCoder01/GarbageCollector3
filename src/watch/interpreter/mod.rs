@@ -81,6 +81,13 @@ impl Interpreter {
         self.interpreter.enter(|vm| match callback(vm) {
             Ok(val) => Some(val),
             Err(err) => {
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let mut out = String::new();
+                    vm.write_exception(&mut out, &err).unwrap();
+                    web_sys::console::error_1(&out.into());
+                }
+                #[cfg(not(target_arch = "wasm32"))]
                 vm.print_exception(err);
                 None
             }

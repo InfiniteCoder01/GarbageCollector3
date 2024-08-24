@@ -768,6 +768,7 @@ dependencies = [
  "rustpython-vm",
  "speedy2d",
  "wasm-logger",
+ "web-sys",
 ]
 
 [[package]]

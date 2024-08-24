@@ -23,7 +23,7 @@ pub struct Player {
     pub slide_timeout: f32,
     pub slippery: bool,
 
-    pub last_grounded: bool,
+    pub last_grounded: f32,
     pub flip: bool,
     pub frame: f32,
     pub animation: &'static str,
@@ -50,7 +50,7 @@ impl Player {
             slide_timeout: 0.0,
             slippery: false,
 
-            last_grounded: false,
+            last_grounded: 1.0,
             flip: false,
             frame: 0.0,
             animation: "idle",
@@ -116,8 +116,12 @@ impl Player {
             }
         }
 
+        self.last_grounded += delta_time;
+
         let motion = self.velocity * delta_time;
-        self.last_grounded = self.grounded;
+        if self.grounded {
+            self.last_grounded = 0.0;
+        }
         self.grounded = false;
         if self.animation == "wall_slide" {
             self.animation = "idle";
@@ -239,7 +243,7 @@ impl Player {
             if self.collides(level) {
                 self.position -= dir * step;
                 if motion.x != 0.0 {
-                    if !self.last_grounded {
+                    if self.last_grounded > 0.3 {
                         self.transition("wall_slide");
                     } else if self.animation == "slide" || self.animation == "slide_start" {
                         self.transition("slide_end");
@@ -250,7 +254,7 @@ impl Player {
                 }
                 if motion.y > 0.0 {
                     self.grounded = true;
-                    if !self.last_grounded
+                    if self.last_grounded > 0.1
                         && self.animation != "slide"
                         && self.animation != "slide_start"
                     {
