@@ -2,7 +2,7 @@
 use super::vm;
 use super::*;
 use speedy2d::font::TextLayout;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use vm::convert::ToPyObject;
 use vm::*;
 
@@ -12,11 +12,11 @@ pub struct ImageLoadQueue {
     pub next_index: PyImage,
 }
 
-pub static IMAGE_LOAD_QUEUE: std::sync::LazyLock<Arc<Mutex<ImageLoadQueue>>> =
-    std::sync::LazyLock::new(|| Arc::new(Mutex::new(ImageLoadQueue::default())));
+pub static IMAGE_LOAD_QUEUE: LazyLock<Arc<Mutex<ImageLoadQueue>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(ImageLoadQueue::default())));
 
-pub static IMAGE_SIZE: std::sync::LazyLock<Arc<Mutex<Vec<Vec2>>>> =
-    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+pub static IMAGE_SIZE: LazyLock<Arc<Mutex<Vec<Vec2>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
 
 #[derive(Default)]
 pub struct Renderer {
@@ -206,6 +206,28 @@ impl Frame {
                 color: Color::from_hex_rgb(color),
             });
     }
+}
+
+// * Weather
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Weather {
+    #[default]
+    Sunny,
+    Rainy,
+    Snowy,
+}
+
+pub static WEATHER: LazyLock<Arc<Mutex<Weather>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(Weather::default())));
+#[pyfunction]
+pub fn set_weather(weather_in: String) {
+    let mut weather = WEATHER.lock().unwrap();
+    match weather_in.as_str() {
+        "sunny" => *weather = Weather::Sunny,
+        "rainy" => *weather = Weather::Rainy,
+        "snowy" => *weather = Weather::Snowy,
+        _ => (),
+    };
 }
 
 // * MISC

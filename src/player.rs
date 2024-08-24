@@ -8,7 +8,9 @@ const FRAMES: &[(&str, u32)] = &[
     ("land", 2),
     ("wall_slide", 1),
     ("kick", 1),
+    ("slide_start", 1),
     ("slide", 1),
+    ("slide_end", 1),
 ];
 
 pub struct Player {
@@ -19,6 +21,7 @@ pub struct Player {
     pub position: Vec2,
     pub grounded: bool,
     pub slide_timeout: f32,
+    pub slippery: bool,
 
     pub last_grounded: bool,
     pub flip: bool,
@@ -45,6 +48,7 @@ impl Player {
             position,
             grounded: false,
             slide_timeout: 0.0,
+            slippery: false,
 
             last_grounded: false,
             flip: false,
@@ -63,26 +67,28 @@ impl Player {
         if self.slide_timeout > 0.0 {
             self.slide_timeout -= delta_time;
         }
-        if self.grounded && self.animation != "slide" {
-            let blend = 1.0 - 0.003_f32.powf(delta_time);
+        if self.grounded && self.animation != "slide" && self.animation != "slide_start" {
+            let blend = 1.0 - if self.slippery { 0.3_f32 } else { 0.003_f32 }.powf(delta_time);
             self.velocity.x += (target_velocity - self.velocity.x) * blend;
             if controls.slide() && self.velocity.x.abs() > 180.0 && self.slide_timeout <= 0.0 {
+                let anim = self.animation;
                 self.animation = "slide";
                 if self.collides(level) {
-                    self.transition("idle")
+                    self.animation = anim;
                 } else {
-                    self.transition("slide");
+                    self.transition("slide_start");
                 }
             }
-        } else if self.animation == "slide" {
+        } else if self.animation == "slide" || self.animation == "slide_start" {
             self.velocity.x += self.velocity.x * (0.6_f32.powf(delta_time) - 1.0);
             if !controls.slide() || !self.grounded || self.velocity.x.abs() < 128.0 {
+                let anim = self.animation;
                 self.animation = "idle";
                 if self.collides(level) {
-                    self.animation = "slide";
+                    self.animation = anim;
                     self.velocity.x = self.velocity.x.signum() * 128.0;
                 } else {
-                    self.transition("idle");
+                    self.transition("slide_end");
                     if controls.slide() {
                         self.slide_timeout = 0.6;
                     }
@@ -96,6 +102,7 @@ impl Player {
         }
         if (self.grounded || self.animation == "wall_slide")
             && self.animation != "slide"
+            && self.animation != "slide_start"
             && controls.jump()
         {
             if self.animation == "wall_slide" {
@@ -115,6 +122,7 @@ impl Player {
         if self.animation == "wall_slide" {
             self.animation = "idle";
         }
+        self.slippery = false;
         self.move_in_steps(level, Vec2::new_x(motion.x));
         self.move_in_steps(level, Vec2::new_y(motion.y));
         while self.collides(level) {
@@ -127,7 +135,7 @@ impl Player {
                     self.transition("fall");
                 }
                 self.flip = self.velocity.x < 0.0;
-            } else if self.animation == "wall_slide" || self.animation == "slide" {
+            } else if self.animation == "wall_slide" || self.animation.starts_with("slide") {
                 self.flip = self.velocity.x < 0.0;
             } else {
                 self.flip = key_dir < 0;
@@ -137,8 +145,12 @@ impl Player {
         let mut animation_speed = 7.0;
         if self.animation == "land" {
             // Wait for land animation to end
-        } else if self.animation == "wall_slide" || self.animation == "slide" {
+        } else if self.animation == "wall_slide" {
             // *Sliding*
+        } else if self.animation.starts_with("slide") {
+            if self.animation.contains('_') {
+                animation_speed = 9.0;
+            }
         } else if !self.grounded {
             if self.velocity.y > 0.0 {
                 self.transition("fall");
@@ -151,8 +163,14 @@ impl Player {
         }
         self.frame += delta_time * animation_speed;
         let frame_count = self.frames[self.animation].clone().count() as f32;
-        if self.frame > frame_count {
+        if self.frame >= frame_count {
             if self.animation == "land" {
+                self.transition("idle");
+            }
+            if self.animation == "slide_start" {
+                self.transition("slide");
+            }
+            if self.animation == "slide_end" {
                 self.transition("idle");
             }
             if self.looped {
@@ -163,7 +181,7 @@ impl Player {
         }
     }
 
-    pub fn collides(&self, level: &world::Level) -> bool {
+    pub fn collides(&mut self, level: &world::Level) -> bool {
         let (tl, size) = self.rect(level.solid.grid_size());
         let br = tl + size.into_i32();
         if tl.x < 0
@@ -184,6 +202,12 @@ impl Player {
                 _ => (),
             }
         }
+        for tile in level.background.rect(tl, size).flat_map(|(_, tile)| tile) {
+            if tile.position == UVec2::new(7, 1) {
+                self.slippery = true;
+                return true;
+            }
+        }
         false
     }
 
@@ -192,7 +216,10 @@ impl Player {
             return;
         }
         self.animation = animation;
-        self.looped = !matches!(animation, "jump" | "land" | "kick");
+        self.looped = !matches!(
+            animation,
+            "jump" | "land" | "kick" | "slide_start" | "slide_end"
+        );
         self.frame = 0.0;
     }
 
@@ -214,8 +241,8 @@ impl Player {
                 if motion.x != 0.0 {
                     if !self.last_grounded {
                         self.transition("wall_slide");
-                    } else if self.animation == "slide" {
-                        self.transition("idle");
+                    } else if self.animation == "slide" || self.animation == "slide_start" {
+                        self.transition("slide_end");
                     }
                 }
                 if motion.y != 0.0 {
@@ -233,7 +260,7 @@ impl Player {
     }
 
     pub fn rect(&self, grid_size: UVec2) -> (IVec2, UVec2) {
-        let (x_range, y_range) = if self.animation == "slide" {
+        let (x_range, y_range) = if self.animation == "slide" || self.animation == "slide_start" {
             ((0.3, 1.0), (0.8, 1.0))
         } else {
             ((0.4, 0.6), (0.0, 1.0))

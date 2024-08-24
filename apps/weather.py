@@ -27,7 +27,7 @@ def frame(frame):
 
         if ui.in_rect(frame.mouse_pos(), cursor, button_size):
             if frame.click():
-                print(weather)
+                watch.set_weather(weather)
 
         cursor = Vector2(cursor.x + button_size.x + 2, cursor.y)
 

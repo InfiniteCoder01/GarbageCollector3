@@ -35,7 +35,22 @@ impl Watch {
         controls: &Controls,
         camera: &mut Camera,
         assets: &Assets,
+        level: &mut world::Level,
     ) {
+        {
+            let weather = *interpreter::pywatch::WEATHER.lock().unwrap();
+            let (from, to) = if weather == interpreter::pywatch::Weather::Snowy {
+                (UVec2::new(7, 0), UVec2::new(7, 1))
+            } else {
+                (UVec2::new(7, 1), UVec2::new(7, 0))
+            };
+            for tile in level.background.tiles.iter_mut().flatten() {
+                if tile.position == from {
+                    tile.position = to;
+                }
+            }
+        }
+
         self.interpreter.update(camera.graphics);
         if controls.watch_toggle() {
             self.open = !self.open;

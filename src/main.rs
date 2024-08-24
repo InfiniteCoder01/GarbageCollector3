@@ -8,7 +8,7 @@ use speedy2d::color::Color;
 use speedy2d::dimen::*;
 use speedy2d::window::{WindowHandler, WindowHelper};
 use speedy2d::Graphics2D;
-use watch::Watch;
+use watch::{interpreter, Watch};
 use world::traits::*;
 
 pub mod assets;
@@ -45,6 +45,7 @@ struct GarbageCollector3 {
     world: world::World,
     player: Player,
     watch: Watch,
+    // particles: Vec<Particle>,
 }
 
 impl GarbageCollector3 {
@@ -114,13 +115,24 @@ impl WindowHandler for GarbageCollector3 {
             position: self.camera,
         };
 
-        camera.graphics.clear_screen(level.bg_color);
+        let weather = *watch::interpreter::pywatch::WEATHER.lock().unwrap();
+        camera.graphics.clear_screen(match weather {
+            interpreter::pywatch::Weather::Sunny => level.bg_color,
+            interpreter::pywatch::Weather::Rainy => Color::from_hex_rgb(0x9F9F9F),
+            interpreter::pywatch::Weather::Snowy => Color::from_hex_rgb(0xDADADA),
+        });
         camera.draw_tiles(screen_size, assets, &level.background);
         camera.draw_autotile(screen_size, assets, &level.solid);
         camera.draw_tiles(screen_size, assets, &level.ambient_decorations);
         self.player.draw(&mut camera, assets);
-        self.watch
-            .draw(helper, delta_time, &self.controls, &mut camera, assets);
+        self.watch.draw(
+            helper,
+            delta_time,
+            &self.controls,
+            &mut camera,
+            assets,
+            &mut self.world[self.level_index],
+        );
         self.controls.reset();
         helper.request_redraw();
     }
@@ -216,9 +228,16 @@ impl Camera<'_> {
     }
 
     pub fn draw_autotile(&mut self, screen_size: Vec2, assets: &Assets, layer: &impl AutoLayer) {
+        let weather = *watch::interpreter::pywatch::WEATHER.lock().unwrap();
         let (tl, size) = self.view_rect(screen_size, layer.grid_size());
         for (pos, tiles) in layer.autotile_rect(tl, size) {
-            for tile in tiles {
+            for mut tile in tiles {
+                if tile.position.x <= 3
+                    && tile.position.y <= 1
+                    && weather == watch::interpreter::pywatch::Weather::Snowy
+                {
+                    tile.position.y += 2;
+                }
                 self.draw_tile(
                     Vec2::new(
                         pos.x as f32 * layer.grid_size().x as f32,
