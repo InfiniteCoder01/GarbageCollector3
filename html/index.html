@@ -13,15 +13,11 @@
 				height: 100%;
 			}
 		</style>
+    <base data-trunk-public-url/>
     <link data-trunk data-initializer="initializer.mjs" data-wasm-opt=0 rel="rust" href=".." />
 	</head>
 
 	<body>
 		<canvas id="canvas"></canvas>
-		<script type="module" src="./garbage_collector3.js"></script>
-		<script type="module">
-			import main from "./garbage_collector3.js";
-			main();
-		</script>
 	</body>
 </html>
