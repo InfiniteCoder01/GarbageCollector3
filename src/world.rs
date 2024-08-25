@@ -697,7 +697,7 @@ impl World {
     pub fn load() -> Self {
         Self {
             level_0: Level {
-                bg_color: <Color as ColorImpl>::from_hex(0x9F9F9FFF),
+                bg_color: <Color as ColorImpl>::from_hex(0x0099DBFF),
                 pixel_size: <UVec2 as VectorImpl>::new(1056 as _, 368 as _),
                 world_depth: 0,
                 world_x: 0,
@@ -6806,7 +6806,7 @@ impl World {
                 },
             },
             level_1: Level {
-                bg_color: <Color as ColorImpl>::from_hex(0x00BEFFFF),
+                bg_color: <Color as ColorImpl>::from_hex(0x0099DBFF),
                 pixel_size: <UVec2 as VectorImpl>::new(672 as _, 304 as _),
                 world_depth: 0,
                 world_x: 1056,

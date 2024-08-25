@@ -223,45 +223,44 @@ impl WindowHandler for GarbageCollector3 {
             rect_size.x = rect_size.x.max(80.0 * camera.scale);
             rect_size.y = rect_size.y.max(60.0 * camera.scale);
             // * Outer border
-            let mut rect = 
-                speedy2d::shape::RoundRect::new(
-                    position - rect_size / 2.0 - Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
-                    position + rect_size / 2.0 + Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
-                    10.0 * camera.scale,
-                );
-            camera.graphics.draw_rounded_rectangle(
-                &rect,
-                Color::from_hex_rgb(0xdfe0e8),
+            let mut rect = speedy2d::shape::RoundRect::new(
+                position - rect_size / 2.0 - Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
+                position + rect_size / 2.0 + Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
+                10.0 * camera.scale,
             );
+            camera
+                .graphics
+                .draw_rounded_rectangle(&rect, Color::from_hex_rgb(0xdfe0e8));
             // * Inner border
-            rect = 
-                speedy2d::shape::RoundRect::new(
-                    rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
-                    rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
-                    rect.radius() - border / 2.0 * camera.scale
-                );
-            camera.graphics.draw_rounded_rectangle(
-                &rect,
-                Color::from_hex_rgb(0x686f99),
+            rect = speedy2d::shape::RoundRect::new(
+                rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                rect.radius() - border / 2.0 * camera.scale,
             );
+            camera
+                .graphics
+                .draw_rounded_rectangle(&rect, Color::from_hex_rgb(0x686f99));
             // * Inside
-            rect = 
-                speedy2d::shape::RoundRect::new(
-                    rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
-                    rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
-                    rect.radius() - border / 2.0 * camera.scale
-                );
-            camera.graphics.draw_rounded_rectangle(
-                &rect,
-                Color::from_hex_rgb(0x3d2936),
+            rect = speedy2d::shape::RoundRect::new(
+                rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                rect.radius() - border / 2.0 * camera.scale,
             );
+            camera
+                .graphics
+                .draw_rounded_rectangle(&rect, Color::from_hex_rgb(0x3d2936));
 
             use speedy2d::numeric::RoundFloat;
-            camera.graphics.draw_text((position - size / 2.0).round(), Color::WHITE, &text);
+            camera
+                .graphics
+                .draw_text((position - size / 2.0).round(), Color::WHITE, &text);
             if self.controls.dialogue_next() {
                 self.dialogue = &self.dialogue[1..];
-                if self.dialogue.is_empty()&&self.level_index == 0  { 
-                    level.marks.entities_mut().retain(|mark| !matches!(mark.entity, world::Entity::Void(_)));
+                if self.dialogue.is_empty() && self.level_index == 0 {
+                    level
+                        .marks
+                        .entities_mut()
+                        .retain(|mark| !matches!(mark.entity, world::Entity::Void(_)));
                 }
             }
         }
@@ -395,7 +394,7 @@ impl Particle {
             self.lifetime = -1.0
         }
         if let Some(tile) = level.background.get(tile_pos) {
-            if tile.position == UVec2::new(7, 1) {
+            if tile.position.x == 7 {
                 self.lifetime = -1.0;
             }
         }

@@ -11,6 +11,7 @@
         in
         {
           devShell = with pkgs; mkShell {
+            packages = [ trunk ];
             LD_LIBRARY_PATH = with pkgs; lib.makeLibraryPath [
               libGL
               xorg.libXrandr
