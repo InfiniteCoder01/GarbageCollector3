@@ -186,7 +186,7 @@ impl Player {
     }
 
     pub fn collides(&mut self, level: &world::Level) -> bool {
-        let (tl, size) = self.rect(level.solid.grid_size());
+        let (tl, size) = self.tile_rect(level.solid.grid_size());
         let br = tl + size.into_i32();
         if tl.x < 0
             || tl.y < 0
@@ -206,10 +206,26 @@ impl Player {
                 _ => (),
             }
         }
-        for tile in level.background.rect(tl, size).flat_map(|(_, tile)| tile) {
+        for tile in level
+            .background
+            .rect(tl, size)
+            .flat_map(|(_, tile)| tile)
+            .chain(level.foreground.rect(tl, size).flat_map(|(_, tile)| tile))
+        {
             if tile.position == UVec2::new(7, 1) {
                 self.slippery = true;
                 return true;
+            }
+            let solids = [UVec2::new(7, 2), UVec2::new(7, 3)];
+            if solids.contains(&tile.position) {
+                return true;
+            }
+        }
+        for entity in level.entities.entities() {
+            if self.overlaps(entity) {
+                if let world::Entity::Platform(_) = &entity.entity {
+                    return true;
+                }
             }
         }
         false
@@ -266,19 +282,33 @@ impl Player {
         }
     }
 
-    pub fn rect(&self, grid_size: UVec2) -> (IVec2, UVec2) {
+    pub fn rect(&self) -> (Vec2, Vec2) {
         let (x_range, y_range) = if self.animation == "slide" || self.animation == "slide_start" {
             ((0.3, 1.0), (0.8, 1.0))
         } else {
             ((0.4, 0.6), (0.0, 1.0))
         };
+
+        let tl = Vec2::new(
+            self.position.x + self.size.x as f32 * x_range.0,
+            self.position.y + self.size.y as f32 * y_range.0,
+        );
+        let br = Vec2::new(
+            self.position.x + self.size.x as f32 * x_range.1,
+            self.position.y + self.size.y as f32 * y_range.1,
+        );
+        (tl, br)
+    }
+
+    pub fn tile_rect(&self, grid_size: UVec2) -> (IVec2, UVec2) {
+        let (tl, br) = self.rect();
         let tl = IVec2::new(
-            ((self.position.x + self.size.x as f32 * x_range.0) / grid_size.x as f32).floor() as _,
-            ((self.position.y + self.size.y as f32 * y_range.0) / grid_size.y as f32).floor() as _,
+            (tl.x / grid_size.x as f32).floor() as _,
+            (tl.y / grid_size.y as f32).floor() as _,
         );
         let br = IVec2::new(
-            ((self.position.x + self.size.x as f32 * x_range.1) / grid_size.x as f32).ceil() as _,
-            ((self.position.y + self.size.y as f32 * y_range.1) / grid_size.y as f32).ceil() as _,
+            (br.x / grid_size.x as f32).ceil() as _,
+            (br.y / grid_size.y as f32).ceil() as _,
         );
         let size = br - tl;
         (tl, size.into_u32())
@@ -305,9 +335,10 @@ impl Player {
     }
 
     pub fn overlaps(&self, entity: &world::EntityObject) -> bool {
-        self.position.x + self.size.x as f32 > entity.top_left().x
-            && self.position.y + self.size.y as f32 > entity.top_left().y
-            && self.position.x < entity.top_left().x + entity.size.x as f32
-            && self.position.y < entity.top_left().y + entity.size.y as f32
+        let(tl, br) = self.rect();
+        br.x as f32 > entity.top_left().x
+            && br.y as f32 > entity.top_left().y
+            && tl.x < entity.top_left().x + entity.size.x as f32
+            && tl.y < entity.top_left().y + entity.size.y as f32
     }
 }

@@ -44,10 +44,11 @@ struct GarbageCollector3 {
     assets: Option<Assets>,
     camera: Vec2,
     controls: Controls,
+
+    level_index: usize,
     introduced: bool,
     dialogue: &'static [&'static str],
 
-    level_index: usize,
     world: world::World,
     player: Player,
     watch: Watch,
@@ -59,21 +60,24 @@ struct GarbageCollector3 {
 impl GarbageCollector3 {
     fn new() -> Self {
         let world = world::World::load();
-        let player = Player::new(get_player_start_position(&world.level_0.marks));
+        let player = Player::new(get_player_start_position(&world.level_0.entities));
         Self {
             stopwatch: speedy2d::time::Stopwatch::new().unwrap(),
             assets: None,
             camera: Vec2::ZERO,
             controls: Controls::default(),
+
+            // level_index: 0,
+            // introduced: false,
+            level_index: 2,
+            introduced: true,
             dialogue: &[],
 
-            level_index: 0,
             world,
             player,
             watch: Watch::default(),
             particles: Vec::new(),
             weather_particle_timer: 0.0,
-            introduced: false,
         }
     }
 }
@@ -96,13 +100,13 @@ impl WindowHandler for GarbageCollector3 {
         let screen_size = helper.get_size_pixels().into_f32() / scale;
         if !self.watch.open && self.dialogue.is_empty() {
             self.player.update(delta_time, level, &self.controls);
-            for mark in level.marks.entities() {
-                if self.player.overlaps(mark) {
-                    match mark.entity {
+            for entity in level.entities.entities() {
+                if self.player.overlaps(entity) {
+                    match entity.entity {
                         world::Entity::EndOfTheLevel(_) => {
                             self.level_index += 1;
                             self.player.position =
-                                get_player_start_position(&self.world[self.level_index].marks);
+                                get_player_start_position(&self.world[self.level_index].entities);
                             self.camera = self.player.position + self.player.size.into_f32() / 2.0
                                 - screen_size / 2.0;
                         }
@@ -192,11 +196,91 @@ impl WindowHandler for GarbageCollector3 {
         camera.draw_tiles(screen_size, assets, &level.background);
         camera.draw_autotile(screen_size, assets, &level.solid);
         camera.draw_tiles(screen_size, assets, &level.ambient_decorations);
+        let level = &mut self.world[self.level_index];
+        for entity in level.entities.entities_mut() {
+            match &mut entity.entity {
+                world::Entity::EndOfTheLevel(eol) => {
+                    let pps = 100.0;
+                    eol.particle_timer += delta_time;
+                    while eol.particle_timer > 1.0 / pps {
+                        eol.particle_timer -= 1.0 / pps;
+                        let direction =
+                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
+                        let velocity = direction.sin_cos();
+                        let velocity = Vec2::new(velocity.0, velocity.1)
+                            * rand::thread_rng().gen_range(0.0..100.0);
+                        self.particles.push(Particle::new(
+                            entity.position,
+                            velocity,
+                            ParticleVisual::Color(Color::WHITE, Vec2::new(2.0, 2.0), true),
+                            false,
+                        ));
+                    }
+                }
+                world::Entity::Void(void) => {
+                    let pps = 100.0;
+                    void.particle_timer += delta_time;
+                    while void.particle_timer > 1.0 / pps {
+                        void.particle_timer -= 1.0 / pps;
+                        let direction =
+                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
+                        let velocity = direction.sin_cos();
+                        let velocity = Vec2::new(velocity.0, velocity.1)
+                            * rand::thread_rng().gen_range(0.0..100.0);
+                        self.particles.push(Particle::new(
+                            entity.position,
+                            velocity,
+                            ParticleVisual::Texture(rand::thread_rng().gen_range(0..=1)),
+                            true,
+                        ));
+                    }
+                }
+                world::Entity::Platform(platform) => {
+                    let point_true = platform.point_true.into_f32() + Vec2::new(0.5, 0.5);
+                    let point_true = (point_true * world::Entities::GRID_SIZE as f32
+                        - camera.position)
+                        * camera.scale;
+                    let point_false = platform.point_false.into_f32() + Vec2::new(0.5, 0.5);
+                    let point_false = (point_false * world::Entities::GRID_SIZE as f32
+                        - camera.position)
+                        * camera.scale;
+                    camera.graphics.draw_line(
+                        point_true,
+                        point_false,
+                        camera.scale,
+                        Color::from_hex_rgb(0x52333f),
+                    );
+                    camera.graphics.draw_circle(point_true, 2.0 * camera.scale, Color::GREEN);
+                    camera.graphics.draw_circle(point_false, 2.0 * camera.scale, Color::RED);
+                    camera.draw_tile(
+                        entity.position,
+                        false,
+                        UVec2::new(4, 3),
+                        UVec2::new(16, 16),
+                        &assets.tileset,
+                        false,
+                        false,
+                    );
+                    let text = assets.font.layout_text(
+                        &platform.condition,
+                        10.0 * camera.scale,
+                        speedy2d::font::TextOptions::new(),
+                    );
+                    let size = text.size();
+                    camera.graphics.draw_text(
+                        point_true - Vec2::new(size.x * 0.5, size.y),
+                        Color::BLACK,
+                        &text,
+                    );
+                }
+                _ => (),
+            }
+        }
         self.player.draw(&mut camera, assets, self.introduced);
+        camera.draw_tiles(screen_size, assets, &level.foreground);
         for particle in &self.particles {
             particle.draw(&mut camera, assets);
         }
-        let level = &mut self.world[self.level_index];
         if self.introduced {
             self.watch.draw(
                 helper,
@@ -205,6 +289,7 @@ impl WindowHandler for GarbageCollector3 {
                 &mut camera,
                 assets,
                 level,
+                &self.player,
             );
         }
         if let Some(line) = self.dialogue.first() {
@@ -258,54 +343,12 @@ impl WindowHandler for GarbageCollector3 {
                 self.dialogue = &self.dialogue[1..];
                 if self.dialogue.is_empty() && self.level_index == 0 {
                     level
-                        .marks
+                        .entities
                         .entities_mut()
-                        .retain(|mark| !matches!(mark.entity, world::Entity::Void(_)));
+                        .retain(|entity| !matches!(entity.entity, world::Entity::Void(_)));
                 }
             }
         }
-        for mark in level.marks.entities_mut() {
-            match &mut mark.entity {
-                world::Entity::EndOfTheLevel(eol) => {
-                    let pps = 100.0;
-                    eol.particle_timer += delta_time;
-                    while eol.particle_timer > 1.0 / pps {
-                        eol.particle_timer -= 1.0 / pps;
-                        let direction =
-                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
-                        let velocity = direction.sin_cos();
-                        let velocity = Vec2::new(velocity.0, velocity.1)
-                            * rand::thread_rng().gen_range(0.0..100.0);
-                        self.particles.push(Particle::new(
-                            mark.position,
-                            velocity,
-                            ParticleVisual::Color(Color::WHITE, Vec2::new(2.0, 2.0), true),
-                            false,
-                        ));
-                    }
-                }
-                world::Entity::Void(void) => {
-                    let pps = 100.0;
-                    void.particle_timer += delta_time;
-                    while void.particle_timer > 1.0 / pps {
-                        void.particle_timer -= 1.0 / pps;
-                        let direction =
-                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
-                        let velocity = direction.sin_cos();
-                        let velocity = Vec2::new(velocity.0, velocity.1)
-                            * rand::thread_rng().gen_range(0.0..100.0);
-                        self.particles.push(Particle::new(
-                            mark.position,
-                            velocity,
-                            ParticleVisual::Texture(rand::thread_rng().gen_range(0..=1)),
-                            true,
-                        ));
-                    }
-                }
-                _ => (),
-            }
-        }
-
         self.controls.reset();
         helper.request_redraw();
     }
@@ -351,6 +394,10 @@ impl WindowHandler for GarbageCollector3 {
         button: speedy2d::window::MouseButton,
     ) {
         self.controls.mouse_buttons.insert(button, true);
+    }
+
+    fn on_keyboard_char(&mut self, _helper: &mut WindowHelper<()>, unicode_codepoint: char) {
+        self.controls.typed_text.push(unicode_codepoint);
     }
 }
 
@@ -535,10 +582,10 @@ impl Camera<'_> {
     }
 }
 
-pub fn get_player_start_position(marks: &world::Marks) -> Vec2 {
-    for mark in marks.entities() {
-        if matches!(mark.entity, world::Entity::PlayerStartPosition(_)) {
-            return mark.position;
+pub fn get_player_start_position(entities: &world::Entities) -> Vec2 {
+    for entity in entities.entities() {
+        if matches!(entity.entity, world::Entity::PlayerStartPosition(_)) {
+            return entity.position;
         }
     }
     Vec2::ZERO

@@ -6,17 +6,27 @@ use std::sync::{Arc, LazyLock, Mutex};
 use vm::convert::ToPyObject;
 use vm::*;
 
-#[derive(Clone, Debug, Default)]
-pub struct ImageLoadQueue {
-    pub queue: Vec<Vec<u8>>,
-    pub next_index: PyImage,
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Action {
+    LoadImage(Vec<u8>),
+    UnlockNearest,
+    LockNearest,
+    Run(String),
 }
 
-pub static IMAGE_LOAD_QUEUE: LazyLock<Arc<Mutex<ImageLoadQueue>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(ImageLoadQueue::default())));
+#[derive(Clone, Debug, Default)]
+pub struct ActionQueue {
+    pub queue: Vec<Action>,
+    pub next_image_index: PyImage,
+}
+
+pub static ACTION_QUEUE: LazyLock<Arc<Mutex<ActionQueue>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(ActionQueue::default())));
 
 pub static IMAGE_SIZE: LazyLock<Arc<Mutex<Vec<Vec2>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+
+pub static CAPTURE_OUTPUT: LazyLock<Mutex<Option<String>>> = LazyLock::new(|| Mutex::new(None));
 
 #[derive(Default)]
 pub struct Renderer {
@@ -25,22 +35,6 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn update(&mut self, graphics: &mut Graphics2D) {
-        let mut queue = IMAGE_LOAD_QUEUE.lock().unwrap();
-        let mut image_size = IMAGE_SIZE.lock().unwrap();
-        for image in queue.queue.drain(..) {
-            let image = graphics
-                .create_image_from_file_bytes(
-                    None,
-                    speedy2d::image::ImageSmoothingMode::NearestNeighbor,
-                    std::io::Cursor::new(image),
-                )
-                .unwrap();
-            image_size.push(image.size().into_f32());
-            self.image_map.push(image);
-        }
-    }
-
     pub fn frame(
         &self,
         vm: &VirtualMachine,
@@ -108,6 +102,105 @@ impl Renderer {
     }
 }
 
+impl super::Interpreter {
+    pub fn update_queue(
+        &mut self,
+        graphics: &mut Graphics2D,
+        level: &mut world::Level,
+        player: &Player,
+    ) {
+        let mut queue = ACTION_QUEUE.lock().unwrap();
+        let mut image_size = IMAGE_SIZE.lock().unwrap();
+
+        fn range_rect(origin: Vec2, size: Vec2, grid_size: UVec2) -> (IVec2, IVec2) {
+            let tl = origin - size / 2.0;
+            let tl = IVec2::new(
+                (tl.x / grid_size.x as f32).floor() as _,
+                (tl.y / grid_size.y as f32).floor() as _,
+            );
+            let br = origin + size / 2.0;
+            let br = IVec2::new(
+                (br.x / grid_size.x as f32).ceil() as _,
+                (br.y / grid_size.y as f32).ceil() as _,
+            );
+            (tl, br)
+        }
+
+        for action in queue.queue.drain(..) {
+            match action {
+                Action::LoadImage(image) => {
+                    let image = graphics
+                        .create_image_from_file_bytes(
+                            None,
+                            speedy2d::image::ImageSmoothingMode::NearestNeighbor,
+                            std::io::Cursor::new(image),
+                        )
+                        .unwrap();
+                    image_size.push(image.size().into_f32());
+                    self.renderer.image_map.push(image);
+                }
+                Action::UnlockNearest => {
+                    let origin = player.position + player.size.into_f32() / 2.0;
+                    let area = Vec2::new(80.0, 80.0);
+                    let (tl, br) = range_rect(origin, area, level.foreground.grid_size());
+                    for y in tl.y..br.y {
+                        for x in tl.x..br.x {
+                            let position = IVec2::new(x, y);
+                            if let Some(tile) = level.foreground.get(position) {
+                                if tile.position == UVec2::new(7, 3) {
+                                    level.foreground.get_mut(position).unwrap().position.x += 1;
+                                    level
+                                        .foreground
+                                        .get_mut(position - IVec2::new_y(1))
+                                        .unwrap()
+                                        .position
+                                        .x += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+                Action::LockNearest => {
+                    let origin = player.position + player.size.into_f32() / 2.0;
+                    let area = Vec2::new(80.0, 80.0);
+                    let (tl, br) = range_rect(origin, area, level.foreground.grid_size());
+                    for y in tl.y..br.y {
+                        for x in tl.x..br.x {
+                            let position = IVec2::new(x, y);
+                            if let Some(tile) = level.foreground.get(position) {
+                                if tile.position == UVec2::new(8, 3) {
+                                    level.foreground.get_mut(position).unwrap().position.x -= 1;
+                                    level
+                                        .foreground
+                                        .get_mut(position - IVec2::new_y(1))
+                                        .unwrap()
+                                        .position
+                                        .x -= 1;
+                                }
+                            }
+                        }
+                    }
+                }
+                Action::Run(code) => {
+                    *CAPTURE_OUTPUT.lock().unwrap() = Some(String::new());
+                    self.enter(|vm| {
+                        vm.run_code_string(self.player_scope.clone(), &code, "<stdin>".to_owned())
+                    });
+                    let output = CAPTURE_OUTPUT.lock().unwrap().take().unwrap();
+                    self.enter(|vm| {
+                        if let Some(module) = &self.current_app {
+                            let handler = module.get_attr("on_run_output", vm)?;
+                            handler.call((output,), vm).map(|_| ())
+                        } else {
+                            Ok(())
+                        }
+                    });
+                }
+            }
+        }
+    }
+}
+
 // * Py data types
 pub type PyImage = usize;
 
@@ -157,8 +250,18 @@ impl Frame {
     }
 
     #[pymethod]
-    pub fn icons(&self) -> PyImage {
-        0
+    pub fn typed_text(&self) -> String {
+        self.controls.typed_text.to_owned()
+    }
+
+    #[pymethod]
+    pub fn jpressed(&self, key: String) -> bool {
+        use speedy2d::window::VirtualKeyCode;
+        match key.as_ref() {
+            "enter" => self.controls.jpressed(VirtualKeyCode::Return),
+            "backspace" => self.controls.jpressed(VirtualKeyCode::Backspace),
+            _ => false,
+        }
     }
 
     #[pymethod]
@@ -230,13 +333,41 @@ pub fn set_weather(weather_in: String) {
     };
 }
 
+// * Interpreter
+#[pyfunction]
+pub fn run(code: String) {
+    let mut queue = ACTION_QUEUE.lock().unwrap();
+    queue.queue.push(Action::Run(code));
+}
+
+#[pyfunction]
+pub fn print(message: String) {
+    if let Some(output) = &mut *CAPTURE_OUTPUT.lock().unwrap() {
+        output.push_str(&message);
+    } else {
+        println!("{}", message);
+    }
+}
+
 // * MISC
 #[pyfunction]
+pub fn lock_nearest() {
+    let mut queue = ACTION_QUEUE.lock().unwrap();
+    queue.queue.push(Action::LockNearest);
+}
+
+#[pyfunction]
+pub fn unlock_nearest() {
+    let mut queue = ACTION_QUEUE.lock().unwrap();
+    queue.queue.push(Action::UnlockNearest);
+}
+
+#[pyfunction]
 pub fn load_image(data: Vec<u8>) -> PyImage {
-    let mut queue = IMAGE_LOAD_QUEUE.lock().unwrap();
-    queue.queue.push(data);
-    queue.next_index += 1;
-    queue.next_index - 1
+    let mut queue = ACTION_QUEUE.lock().unwrap();
+    queue.queue.push(Action::LoadImage(data));
+    queue.next_image_index += 1;
+    queue.next_image_index - 1
 }
 
 #[pyfunction]

@@ -9,6 +9,7 @@ pub struct Controls {
     pub mods: speedy2d::window::ModifiersState,
     pub mouse_pos: Vec2,
     pub mouse_buttons: HashMap<MouseButton, bool>,
+    pub typed_text: String,
 }
 
 impl Default for Controls {
@@ -19,6 +20,7 @@ impl Default for Controls {
             mods: Default::default(),
             mouse_pos: Vec2::ZERO,
             mouse_buttons: HashMap::new(),
+            typed_text: String::new(),
         }
     }
 }
@@ -27,6 +29,7 @@ impl Controls {
     pub fn reset(&mut self) {
         self.jpressed.clear();
         self.mouse_buttons.clear();
+        self.typed_text.clear();
     }
 
     pub fn pressed(&self, virtual_key_code: VirtualKeyCode) -> bool {

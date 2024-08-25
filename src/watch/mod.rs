@@ -19,8 +19,9 @@ impl Default for Watch {
             open: false,
             apps: vec![
                 App::new(UVec2::new(0, 0), "weather"),
-                App::new(UVec2::new(1, 0), "placeholder"),
+                App::new(UVec2::new(1, 0), "keyring"),
                 App::new(UVec2::new(2, 0), "placeholder"),
+                App::new(UVec2::new(3, 0), "terminal"),
             ],
             interpreter: Interpreter::default(),
         }
@@ -28,14 +29,16 @@ impl Default for Watch {
 }
 
 impl Watch {
+    #[allow(clippy::too_many_arguments)]
     pub fn draw(
         &mut self,
         helper: &mut WindowHelper,
-        _delta_time: f32,
+        delta_time: f32,
         controls: &Controls,
         camera: &mut Camera,
         assets: &Assets,
         level: &mut world::Level,
+        player: &Player
     ) {
         {
             let weather = *interpreter::pywatch::WEATHER.lock().unwrap();
@@ -51,7 +54,7 @@ impl Watch {
             }
         }
 
-        self.interpreter.update(camera.graphics);
+        self.interpreter.update(delta_time, camera.graphics, level, player);
         if controls.watch_toggle() {
             self.open = !self.open;
         }
