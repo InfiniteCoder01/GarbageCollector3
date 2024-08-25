@@ -15,7 +15,7 @@
 		</style>
     <base href="./" />
     
-<script type="module" nonce="moYhFiDLhLOS2zLvkZh4Lg==">
+<script type="module" nonce="JN4BCpfyufiOLHaAX2r17Q==">
 async function __trunkInitializer(init, source, sourceSize, initializer) {
   if (initializer === undefined) {
     return await init(source);
@@ -101,9 +101,34 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 	
 <link rel="modulepreload" href="./garbage_collector3-86f291ead39cb410.js" crossorigin=anonymous integrity="sha384-6XUhuZA/jH0gYTiWsFc8aCffnCxrCcwBw79uEnkMrtSdRG3Q5mnt0LcxlUymYw91">
 <link rel="modulepreload" href="./502c3154680c8d7d-initializer.mjs" crossorigin=anonymous integrity="sha384-eKZrD+l1N75SxrjlTDZ0NSb28w8D2hfyoGfk50dK0V9H10qeNg2kERbTBeeChn3n">
-<link rel="preload" href="./garbage_collector3-86f291ead39cb410_bg.wasm" crossorigin=anonymous integrity="sha384-1NwupA3qrkysfPuO3S1/HI4czVxZd69Ur+9b4Kgs5tKercCt7eprzQ9+SLaQGWnC" as="fetch" type="application/wasm"></head>
+<link rel="preload" href="./garbage_collector3-86f291ead39cb410_bg.wasm" crossorigin=anonymous integrity="sha384-VSj/JAMHB6x7rn7mpE8hcENnvHgT35zZfR7WzEYRyoOmkuxQdPTJbR0XSRhMWt+Q" as="fetch" type="application/wasm"></head>
 
 	<body>
 		<canvas id="canvas"></canvas>
+    <script>
+      window.addEventListener("keydown", function(event) {
+        console.log(event);
+        if (event.key == "v" && event.ctrlKey) {
+          navigator.clipboard.readText().then(text => {
+            canvas.dispatchEvent(new KeyboardEvent('keydown', {
+              keyCode: 8,
+              code: "Backspace",
+              which: "Backspace",
+              key: "Backspace",
+            }));
+            setTimeout(() => {
+              for (c of text) {
+                canvas.dispatchEvent(new KeyboardEvent('keydown', {
+                  keyCode: c.charCodeAt(0),
+                  which: c.charCodeAt(0),
+                  key: c
+                }));
+              }
+            }, 100);
+          });
+          event.preventDefault();
+        }
+      });
+    </script>
 	</body>
 </html>

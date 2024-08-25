@@ -14,10 +14,35 @@
 			}
 		</style>
     <base data-trunk-public-url/>
-    <link data-trunk data-initializer="initializer.mjs" data-wasm-opt=0 rel="rust" href=".." />
+    <link data-trunk data-initializer="initializer.mjs" data-wasm-opt=4 rel="rust" href=".." />
 	</head>
 
 	<body>
 		<canvas id="canvas"></canvas>
+    <script>
+      window.addEventListener("keydown", function(event) {
+        console.log(event);
+        if (event.key == "v" && event.ctrlKey) {
+          navigator.clipboard.readText().then(text => {
+            canvas.dispatchEvent(new KeyboardEvent('keydown', {
+              keyCode: 8,
+              code: "Backspace",
+              which: "Backspace",
+              key: "Backspace",
+            }));
+            setTimeout(() => {
+              for (c of text) {
+                canvas.dispatchEvent(new KeyboardEvent('keydown', {
+                  keyCode: c.charCodeAt(0),
+                  which: c.charCodeAt(0),
+                  key: c
+                }));
+              }
+            }, 100);
+          });
+          event.preventDefault();
+        }
+      });
+    </script>
 	</body>
 </html>
