@@ -47,6 +47,7 @@ impl Interpreter {
         graphics: &mut Graphics2D,
         level: &mut world::Level,
         player: &Player,
+        apps: &mut Vec<App>,
     ) {
         if !self.initialized {
             self.enter(|vm| {
@@ -73,14 +74,14 @@ impl Interpreter {
             });
             self.initialized = true;
         }
-        self.update_queue(graphics, level, player);
+        self.update_queue(graphics, level, player, apps);
 
         for entity in level.entities.entities_mut() {
             if let world::Entity::Platform(platform) = &mut entity.entity {
                 let result = self.interpreter.enter(|vm| {
                     vm.compile(
                         &platform.condition,
-                        vm::compiler::Mode::Single,
+                        vm::compiler::Mode::Eval,
                         "world.ldtk".to_owned(),
                     )
                     .ok()
@@ -94,8 +95,9 @@ impl Interpreter {
                     platform.point_false
                 };
                 let target = target.into_f32() * world::Entities::GRID_SIZE as f32;
-                if (target - entity.position).magnitude_squared() > 2.0 {
-                    if let Some(dir) = (target - entity.position).normalize() {
+                let delta = target - entity.position;
+                if delta.magnitude_squared() > 2.0 {
+                    if let Some(dir) = delta.normalize() {
                         entity.position += dir * 10.0 * delta_time;
                     }
                 }

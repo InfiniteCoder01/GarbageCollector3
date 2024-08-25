@@ -12,6 +12,7 @@ pub enum Action {
     UnlockNearest,
     LockNearest,
     Run(String),
+    AddApp(String),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -108,9 +109,9 @@ impl super::Interpreter {
         graphics: &mut Graphics2D,
         level: &mut world::Level,
         player: &Player,
+        apps: &mut Vec<App>,
     ) {
-        let mut queue = ACTION_QUEUE.lock().unwrap();
-        let mut image_size = IMAGE_SIZE.lock().unwrap();
+        let queue = std::mem::take(&mut ACTION_QUEUE.lock().unwrap().queue);
 
         fn range_rect(origin: Vec2, size: Vec2, grid_size: UVec2) -> (IVec2, IVec2) {
             let tl = origin - size / 2.0;
@@ -126,7 +127,7 @@ impl super::Interpreter {
             (tl, br)
         }
 
-        for action in queue.queue.drain(..) {
+        for action in queue {
             match action {
                 Action::LoadImage(image) => {
                     let image = graphics
@@ -136,7 +137,7 @@ impl super::Interpreter {
                             std::io::Cursor::new(image),
                         )
                         .unwrap();
-                    image_size.push(image.size().into_f32());
+                    IMAGE_SIZE.lock().unwrap().push(image.size().into_f32());
                     self.renderer.image_map.push(image);
                 }
                 Action::UnlockNearest => {
@@ -196,6 +197,12 @@ impl super::Interpreter {
                         }
                     });
                 }
+                Action::AddApp(module) => {
+                    apps.push(App::new(
+                        UVec2::new(4, 0),
+                        Box::leak(Box::new(module)).as_str(),
+                    ));
+                }
             }
         }
     }
@@ -254,14 +261,55 @@ impl Frame {
         self.controls.typed_text.to_owned()
     }
 
-    #[pymethod]
-    pub fn jpressed(&self, key: String) -> bool {
+    pub fn string_to_vkc(&self, key: String) -> Option<VirtualKeyCode> {
         use speedy2d::window::VirtualKeyCode;
         match key.as_ref() {
-            "enter" => self.controls.jpressed(VirtualKeyCode::Return),
-            "backspace" => self.controls.jpressed(VirtualKeyCode::Backspace),
-            _ => false,
+            "enter" => Some(VirtualKeyCode::Return),
+            "backspace" => Some(VirtualKeyCode::Backspace),
+            "left" => Some(VirtualKeyCode::Left),
+            "right" => Some(VirtualKeyCode::Right),
+            "up" => Some(VirtualKeyCode::Up),
+            "down" => Some(VirtualKeyCode::Down),
+            "home" => Some(VirtualKeyCode::Home),
+            "end" => Some(VirtualKeyCode::End),
+            "page_up" => Some(VirtualKeyCode::PageUp),
+            "page_down" => Some(VirtualKeyCode::PageDown),
+            "escape" => Some(VirtualKeyCode::Escape),
+            _ => None,
         }
+    }
+
+    #[pymethod]
+    pub fn pressed(&self, key: String) -> bool {
+        if let Some(vkc) = self.string_to_vkc(key) {
+            self.controls.pressed(vkc)
+        } else {
+            false
+        }
+    }
+
+    #[pymethod]
+    pub fn jpressed(&self, key: String) -> bool {
+        if let Some(vkc) = self.string_to_vkc(key) {
+            self.controls.jpressed(vkc)
+        } else {
+            false
+        }
+    }
+
+    #[pymethod]
+    pub fn ctrl(&self) -> bool {
+        self.controls.mods.ctrl()
+    }
+
+    #[pymethod]
+    pub fn shift(&self) -> bool {
+        self.controls.mods.shift()
+    }
+
+    #[pymethod]
+    pub fn alt(&self) -> bool {
+        self.controls.mods.alt()
     }
 
     #[pymethod]
@@ -360,6 +408,12 @@ pub fn lock_nearest() {
 pub fn unlock_nearest() {
     let mut queue = ACTION_QUEUE.lock().unwrap();
     queue.queue.push(Action::UnlockNearest);
+}
+
+#[pyfunction]
+pub fn add_app(module: String) {
+    let mut queue = ACTION_QUEUE.lock().unwrap();
+    queue.queue.push(Action::AddApp(module));
 }
 
 #[pyfunction]

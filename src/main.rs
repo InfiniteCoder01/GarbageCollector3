@@ -10,7 +10,7 @@ use rand::Rng;
 use speedy2d::color::Color;
 use speedy2d::dimen::*;
 use speedy2d::font::TextLayout;
-use speedy2d::window::{WindowHandler, WindowHelper};
+use speedy2d::window::{VirtualKeyCode, WindowHandler, WindowHelper};
 use speedy2d::Graphics2D;
 use watch::{interpreter, Watch};
 use world::traits::*;
@@ -34,7 +34,7 @@ fn main() {
     speedy2d::WebCanvas::new_for_id("canvas", handler).unwrap();
     #[cfg(not(target_arch = "wasm32"))]
     {
-        let window = speedy2d::Window::new_centered("Speedy2D: Animation", (800, 800)).unwrap();
+        let window = speedy2d::Window::new_centered("GarbageCollector3", (854, 480)).unwrap();
         window.run_loop(handler)
     }
 }
@@ -55,6 +55,9 @@ struct GarbageCollector3 {
 
     particles: Vec<Particle>,
     weather_particle_timer: f32,
+
+    timer: Option<f32>,
+    finished: bool,
 }
 
 impl GarbageCollector3 {
@@ -67,10 +70,8 @@ impl GarbageCollector3 {
             camera: Vec2::ZERO,
             controls: Controls::default(),
 
-            // level_index: 0,
-            // introduced: false,
-            level_index: 2,
-            introduced: true,
+            level_index: 0,
+            introduced: false,
             dialogue: &[],
 
             world,
@@ -78,6 +79,9 @@ impl GarbageCollector3 {
             watch: Watch::default(),
             particles: Vec::new(),
             weather_particle_timer: 0.0,
+
+            timer: None,
+            finished: false,
         }
     }
 }
@@ -94,6 +98,13 @@ impl WindowHandler for GarbageCollector3 {
         });
         let delta_time = self.stopwatch.secs_elapsed() as f32;
         self.stopwatch = speedy2d::time::Stopwatch::new().unwrap();
+
+        if let Some(timer) = &mut self.timer {
+            if !self.finished {
+                *timer += delta_time;
+            }
+        }
+
         let level = &self.world[self.level_index];
 
         let scale = helper.get_size_pixels().y as f32 / 256.0;
@@ -112,20 +123,24 @@ impl WindowHandler for GarbageCollector3 {
                         }
 
                         world::Entity::Void(_) => {
-                            if self.introduced {
-                                continue;
+                            if self.level_index == 0 {
+                                if !self.introduced {
+                                    self.dialogue = &[
+                                    "Hey!",
+                                    "I'm Void, and you probably have heard of me.",
+                                    "So, I just finished designing this watch...",
+                                    "It's not your usual fitness bracelet. It's something more!",
+                                    "And I want you to test it...",
+                                    "Can you just *run* through this obstacle course I made for you as fast as possible?",
+                                    "You might need to *write* some code to unleash bracelet's full potential...",
+                                    "Your time starts... Now!",
+                                ];
+                                    self.introduced = true;
+                                }
+                            } else {
+                                self.finished = true;
+                                self.dialogue = &["You did it! It only took you $TIME"];
                             }
-                            self.dialogue = &[
-                                "Hey!",
-                                "I'm Void, and you probably have heard of me.",
-                                "So, I just finished designing this watch...",
-                                "It's not your usual fitness bracelet. It's something more!",
-                                "And I want you to test it...",
-                                "Can you just *run* through this obstacle course I made for you as fast as possible?",
-                                "You might need to *write* some code to unleash bracelet's full potential...",
-                                "Your time starts... Now!",
-                            ];
-                            self.introduced = true;
                         }
                         _ => (),
                     }
@@ -244,25 +259,30 @@ impl WindowHandler for GarbageCollector3 {
                     let point_false = (point_false * world::Entities::GRID_SIZE as f32
                         - camera.position)
                         * camera.scale;
+                    let condition = platform.condition.clone();
                     camera.graphics.draw_line(
                         point_true,
                         point_false,
                         camera.scale,
                         Color::from_hex_rgb(0x52333f),
                     );
-                    camera.graphics.draw_circle(point_true, 2.0 * camera.scale, Color::GREEN);
-                    camera.graphics.draw_circle(point_false, 2.0 * camera.scale, Color::RED);
+                    camera
+                        .graphics
+                        .draw_circle(point_true, 2.0 * camera.scale, Color::GREEN);
+                    camera
+                        .graphics
+                        .draw_circle(point_false, 2.0 * camera.scale, Color::RED);
                     camera.draw_tile(
-                        entity.position,
+                        entity.top_left(),
                         false,
-                        UVec2::new(4, 3),
-                        UVec2::new(16, 16),
+                        UVec2::new(5, 0),
+                        UVec2::new(32, 16),
                         &assets.tileset,
                         false,
                         false,
                     );
                     let text = assets.font.layout_text(
-                        &platform.condition,
+                        &condition,
                         10.0 * camera.scale,
                         speedy2d::font::TextOptions::new(),
                     );
@@ -297,7 +317,17 @@ impl WindowHandler for GarbageCollector3 {
             position.x *= 0.5;
             position.y *= 0.5;
             let text = assets.font.layout_text(
-                line,
+                &line.replace(
+                    "$TIME",
+                    &self.timer.map_or("???".to_owned(), |time| {
+                        format!(
+                            "{:02}:{:02}:{:01.2}",
+                            (time / 60.0 / 60.0) as i32,
+                            (time / 60.0) as i32 % 60,
+                            time % 60.0
+                        )
+                    }),
+                ),
                 10.0 * camera.scale,
                 speedy2d::font::TextOptions::new()
                     .with_wrap_to_width(80.0 * camera.scale, speedy2d::font::TextAlignment::Left),
@@ -341,7 +371,10 @@ impl WindowHandler for GarbageCollector3 {
                 .draw_text((position - size / 2.0).round(), Color::WHITE, &text);
             if self.controls.dialogue_next() {
                 self.dialogue = &self.dialogue[1..];
-                if self.dialogue.is_empty() && self.level_index == 0 {
+                if self.dialogue.is_empty() {
+                    if self.level_index == 0 {
+                        self.timer = Some(0.0);
+                    }
                     level
                         .entities
                         .entities_mut()
@@ -397,6 +430,9 @@ impl WindowHandler for GarbageCollector3 {
     }
 
     fn on_keyboard_char(&mut self, _helper: &mut WindowHelper<()>, unicode_codepoint: char) {
+        if (unicode_codepoint as u32) < 9 {
+            return;
+        }
         self.controls.typed_text.push(unicode_codepoint);
     }
 }

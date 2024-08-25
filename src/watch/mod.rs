@@ -38,7 +38,7 @@ impl Watch {
         camera: &mut Camera,
         assets: &Assets,
         level: &mut world::Level,
-        player: &Player
+        player: &Player,
     ) {
         {
             let weather = *interpreter::pywatch::WEATHER.lock().unwrap();
@@ -54,7 +54,8 @@ impl Watch {
             }
         }
 
-        self.interpreter.update(delta_time, camera.graphics, level, player);
+        self.interpreter
+            .update(delta_time, camera.graphics, level, player, &mut self.apps);
         if controls.watch_toggle() {
             self.open = !self.open;
         }
@@ -90,8 +91,18 @@ impl Watch {
                     .contains(mouse_pos)
                     && controls.click()
                 {
-                    self.interpreter.current_app =
-                        self.interpreter.enter(|vm| vm.import(app.module, 0));
+                    self.interpreter.current_app = self.interpreter.enter(|vm| {
+                        if let Ok(module) = self
+                            .interpreter
+                            .player_scope
+                            .globals
+                            .get_item(app.module, vm)
+                        {
+                            Ok(module)
+                        } else {
+                            vm.import(app.module, 0)
+                        }
+                    });
                 }
                 app.draw(cursor, camera, assets);
                 cursor.x += APP_SIZE as f32 + padding;
