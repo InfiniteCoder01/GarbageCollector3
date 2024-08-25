@@ -13,9 +13,9 @@
 				height: 100%;
 			}
 		</style>
-    <base href="/" />
+    <base href="./" />
     
-<script type="module" nonce="RzALwr0eDhtk+OSSTyvW/Q==">
+<script type="module" nonce="DKbkZVSne4l87bnXzdv2ag==">
 async function __trunkInitializer(init, source, sourceSize, initializer) {
   if (initializer === undefined) {
     return await init(source);
@@ -86,10 +86,10 @@ async function __trunkInitWithProgress(init, source, sourceSize, initializer) {
 }
 
 
-import init, * as bindings from '/garbage_collector3-f467ae94eb164136.js';
-import initializer from '/502c3154680c8d7d-initializer.mjs';
+import init, * as bindings from './garbage_collector3-f467ae94eb164136.js';
+import initializer from './502c3154680c8d7d-initializer.mjs';
 
-const wasm = await __trunkInitializer(init, '/garbage_collector3-f467ae94eb164136_bg.wasm', 20192020, initializer());
+const wasm = await __trunkInitializer(init, './garbage_collector3-f467ae94eb164136_bg.wasm', 20192020, initializer());
 
 
 window.wasmBindings = bindings;
@@ -99,9 +99,9 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
 	
-<link rel="modulepreload" href="/garbage_collector3-f467ae94eb164136.js" crossorigin=anonymous integrity="sha384-G88CUkV9uy+NU3gkFK0ncwO7ZotsPwDZUYx4U6x5Lm+sARYpEvJ4d8Y2tOwFSAbf">
-<link rel="modulepreload" href="/502c3154680c8d7d-initializer.mjs" crossorigin=anonymous integrity="sha384-eKZrD+l1N75SxrjlTDZ0NSb28w8D2hfyoGfk50dK0V9H10qeNg2kERbTBeeChn3n">
-<link rel="preload" href="/garbage_collector3-f467ae94eb164136_bg.wasm" crossorigin=anonymous integrity="sha384-It3Pu2YqYx8663x+6UOJn4qoi5G53kIOw6BUEw6RgN+YAKgGoapiMI3vAVGLx3Rc" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="./garbage_collector3-f467ae94eb164136.js" crossorigin=anonymous integrity="sha384-G88CUkV9uy+NU3gkFK0ncwO7ZotsPwDZUYx4U6x5Lm+sARYpEvJ4d8Y2tOwFSAbf">
+<link rel="modulepreload" href="./502c3154680c8d7d-initializer.mjs" crossorigin=anonymous integrity="sha384-eKZrD+l1N75SxrjlTDZ0NSb28w8D2hfyoGfk50dK0V9H10qeNg2kERbTBeeChn3n">
+<link rel="preload" href="./garbage_collector3-f467ae94eb164136_bg.wasm" crossorigin=anonymous integrity="sha384-It3Pu2YqYx8663x+6UOJn4qoi5G53kIOw6BUEw6RgN+YAKgGoapiMI3vAVGLx3Rc" as="fetch" type="application/wasm"></head>
 
 	<body>
 		<canvas id="canvas"></canvas>
