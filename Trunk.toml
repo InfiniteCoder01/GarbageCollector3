@@ -1,4 +1,4 @@
  [build]
  target = "html/index.html"
  release = true
- # public_url = "GarbageCollector3/"
+ public_url = "/GarbageCollector3/"
