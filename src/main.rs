@@ -1,12 +1,15 @@
 #![feature(proc_macro_hygiene)]
 #![feature(custom_inner_attributes)]
 
+use std::fmt::Debug;
+
 use assets::Assets;
 use controls::Controls;
 use player::Player;
 use rand::Rng;
 use speedy2d::color::Color;
 use speedy2d::dimen::*;
+use speedy2d::font::TextLayout;
 use speedy2d::window::{WindowHandler, WindowHelper};
 use speedy2d::Graphics2D;
 use watch::{interpreter, Watch};
@@ -41,11 +44,14 @@ struct GarbageCollector3 {
     assets: Option<Assets>,
     camera: Vec2,
     controls: Controls,
+    introduced: bool,
+    dialogue: &'static [&'static str],
 
     level_index: usize,
     world: world::World,
     player: Player,
     watch: Watch,
+
     particles: Vec<Particle>,
     weather_particle_timer: f32,
 }
@@ -59,6 +65,7 @@ impl GarbageCollector3 {
             assets: None,
             camera: Vec2::ZERO,
             controls: Controls::default(),
+            dialogue: &[],
 
             level_index: 0,
             world,
@@ -66,6 +73,7 @@ impl GarbageCollector3 {
             watch: Watch::default(),
             particles: Vec::new(),
             weather_particle_timer: 0.0,
+            introduced: false,
         }
     }
 }
@@ -86,17 +94,37 @@ impl WindowHandler for GarbageCollector3 {
 
         let scale = helper.get_size_pixels().y as f32 / 256.0;
         let screen_size = helper.get_size_pixels().into_f32() / scale;
-        if !self.watch.open {
+        if !self.watch.open && self.dialogue.is_empty() {
             self.player.update(delta_time, level, &self.controls);
             for mark in level.marks.entities() {
-                if matches!(mark.entity, world::Entity::EndOfTheLevel(_))
-                    && self.player.overlaps(mark)
-                {
-                    self.level_index += 1;
-                    self.player.position =
-                        get_player_start_position(&self.world[self.level_index].marks);
-                    self.camera = self.player.position + self.player.size.into_f32() / 2.0
-                        - screen_size / 2.0;
+                if self.player.overlaps(mark) {
+                    match mark.entity {
+                        world::Entity::EndOfTheLevel(_) => {
+                            self.level_index += 1;
+                            self.player.position =
+                                get_player_start_position(&self.world[self.level_index].marks);
+                            self.camera = self.player.position + self.player.size.into_f32() / 2.0
+                                - screen_size / 2.0;
+                        }
+
+                        world::Entity::Void(_) => {
+                            if self.introduced {
+                                continue;
+                            }
+                            self.dialogue = &[
+                                "Hey!",
+                                "I'm Void, and you probably have heard of me.",
+                                "So, I just finished designing this watch...",
+                                "It's not your usual fitness bracelet. It's something more!",
+                                "And I want you to test it...",
+                                "Can you just *run* through this obstacle course I made for you as fast as possible?",
+                                "You might need to *write* some code to unleash bracelet's full potential...",
+                                "Your time starts... Now!",
+                            ];
+                            self.introduced = true;
+                        }
+                        _ => (),
+                    }
                 }
             }
         }
@@ -133,8 +161,14 @@ impl WindowHandler for GarbageCollector3 {
             });
 
             let (pps, particle_color) = match weather {
-                interpreter::pywatch::Weather::Rainy => (100.0, Color::from_hex_rgb(0x00057F)),
-                interpreter::pywatch::Weather::Snowy => (100.0, Color::from_hex_rgb(0xFFFFFF)),
+                interpreter::pywatch::Weather::Rainy => (
+                    0.1 * level.pixel_size.x as f32,
+                    Color::from_hex_rgb(0x00057F),
+                ),
+                interpreter::pywatch::Weather::Snowy => (
+                    0.1 * level.pixel_size.x as f32,
+                    Color::from_hex_rgb(0xFFFFFF),
+                ),
                 _ => (0.0, Color::MAGENTA),
             };
             self.weather_particle_timer += delta_time;
@@ -146,7 +180,8 @@ impl WindowHandler for GarbageCollector3 {
                         rand::thread_rng().gen_range(-20.0..20.0_f32),
                     ),
                     Vec2::ZERO,
-                    particle_color,
+                    ParticleVisual::Color(particle_color, Vec2::new(1.0, 2.5), false),
+                    true,
                 ));
             }
             if pps == 0.0 {
@@ -157,18 +192,121 @@ impl WindowHandler for GarbageCollector3 {
         camera.draw_tiles(screen_size, assets, &level.background);
         camera.draw_autotile(screen_size, assets, &level.solid);
         camera.draw_tiles(screen_size, assets, &level.ambient_decorations);
-        self.player.draw(&mut camera, assets);
+        self.player.draw(&mut camera, assets, self.introduced);
         for particle in &self.particles {
-            particle.draw(&mut camera);
+            particle.draw(&mut camera, assets);
         }
-        self.watch.draw(
-            helper,
-            delta_time,
-            &self.controls,
-            &mut camera,
-            assets,
-            &mut self.world[self.level_index],
-        );
+        let level = &mut self.world[self.level_index];
+        if self.introduced {
+            self.watch.draw(
+                helper,
+                delta_time,
+                &self.controls,
+                &mut camera,
+                assets,
+                level,
+            );
+        }
+        if let Some(line) = self.dialogue.first() {
+            let mut position = helper.get_size_pixels().into_f32();
+            position.x *= 0.5;
+            position.y *= 0.5;
+            let text = assets.font.layout_text(
+                line,
+                10.0 * camera.scale,
+                speedy2d::font::TextOptions::new()
+                    .with_wrap_to_width(80.0 * camera.scale, speedy2d::font::TextAlignment::Left),
+            );
+            let size = text.size();
+            let border = 5.0;
+            let mut rect_size = size;
+            rect_size.x = rect_size.x.max(80.0 * camera.scale);
+            rect_size.y = rect_size.y.max(60.0 * camera.scale);
+            // * Outer border
+            let mut rect = 
+                speedy2d::shape::RoundRect::new(
+                    position - rect_size / 2.0 - Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
+                    position + rect_size / 2.0 + Vec2::new(1.0, 1.0) * 10.0 * camera.scale,
+                    10.0 * camera.scale,
+                );
+            camera.graphics.draw_rounded_rectangle(
+                &rect,
+                Color::from_hex_rgb(0xdfe0e8),
+            );
+            // * Inner border
+            rect = 
+                speedy2d::shape::RoundRect::new(
+                    rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                    rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                    rect.radius() - border / 2.0 * camera.scale
+                );
+            camera.graphics.draw_rounded_rectangle(
+                &rect,
+                Color::from_hex_rgb(0x686f99),
+            );
+            // * Inside
+            rect = 
+                speedy2d::shape::RoundRect::new(
+                    rect.top_left() + Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                    rect.bottom_right() - Vec2::new(1.0, 1.0) * border / 2.0 * camera.scale,
+                    rect.radius() - border / 2.0 * camera.scale
+                );
+            camera.graphics.draw_rounded_rectangle(
+                &rect,
+                Color::from_hex_rgb(0x3d2936),
+            );
+
+            use speedy2d::numeric::RoundFloat;
+            camera.graphics.draw_text((position - size / 2.0).round(), Color::WHITE, &text);
+            if self.controls.dialogue_next() {
+                self.dialogue = &self.dialogue[1..];
+                if self.dialogue.is_empty()&&self.level_index == 0  { 
+                    level.marks.entities_mut().retain(|mark| !matches!(mark.entity, world::Entity::Void(_)));
+                }
+            }
+        }
+        for mark in level.marks.entities_mut() {
+            match &mut mark.entity {
+                world::Entity::EndOfTheLevel(eol) => {
+                    let pps = 100.0;
+                    eol.particle_timer += delta_time;
+                    while eol.particle_timer > 1.0 / pps {
+                        eol.particle_timer -= 1.0 / pps;
+                        let direction =
+                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
+                        let velocity = direction.sin_cos();
+                        let velocity = Vec2::new(velocity.0, velocity.1)
+                            * rand::thread_rng().gen_range(0.0..100.0);
+                        self.particles.push(Particle::new(
+                            mark.position,
+                            velocity,
+                            ParticleVisual::Color(Color::WHITE, Vec2::new(2.0, 2.0), true),
+                            false,
+                        ));
+                    }
+                }
+                world::Entity::Void(void) => {
+                    let pps = 100.0;
+                    void.particle_timer += delta_time;
+                    while void.particle_timer > 1.0 / pps {
+                        void.particle_timer -= 1.0 / pps;
+                        let direction =
+                            rand::thread_rng().gen_range(0.0..std::f32::consts::PI * 2.0);
+                        let velocity = direction.sin_cos();
+                        let velocity = Vec2::new(velocity.0, velocity.1)
+                            * rand::thread_rng().gen_range(0.0..100.0);
+                        self.particles.push(Particle::new(
+                            mark.position,
+                            velocity,
+                            ParticleVisual::Texture(rand::thread_rng().gen_range(0..=1)),
+                            true,
+                        ));
+                    }
+                }
+                _ => (),
+            }
+        }
+
         self.controls.reset();
         helper.request_redraw();
     }
@@ -216,26 +354,38 @@ impl WindowHandler for GarbageCollector3 {
         self.controls.mouse_buttons.insert(button, true);
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ParticleVisual {
+    Color(Color, Vec2, bool),
+    Texture(u8),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Particle {
     position: Vec2,
     velocity: Vec2,
-    color: Color,
+    visual: ParticleVisual,
+    gravity: bool,
     lifetime: f32,
 }
 
 impl Particle {
-    pub fn new(position: Vec2, velocity: Vec2, color: Color) -> Self {
+    pub fn new(position: Vec2, velocity: Vec2, visual: ParticleVisual, gravity: bool) -> Self {
         Self {
             position,
             velocity,
-            color,
+            visual,
+            gravity,
             lifetime: 5.0,
         }
     }
 
     pub fn update(&mut self, level: &world::Level, delta_time: f32) {
         self.position += self.velocity * delta_time;
-        self.velocity.y += 18.0 * 32.0 * delta_time;
+        if self.gravity {
+            self.velocity.y += 18.0 * 32.0 * delta_time;
+        }
         self.velocity *= 0.9;
         let tile_pos = IVec2::new(
             (self.position.x / level.solid.grid_size().x as f32).floor() as i32,
@@ -252,13 +402,30 @@ impl Particle {
         self.lifetime -= delta_time;
     }
 
-    pub fn draw(&self, camera: &mut Camera) {
-        let position = (self.position - camera.position) * camera.scale;
-        let size = Vec2::new(1.0, 2.5) * camera.scale;
-        camera.graphics.draw_rectangle(
-            speedy2d::shape::Rect::new(position - size / 2.0, position + size / 2.0),
-            self.color,
-        );
+    pub fn draw(&self, camera: &mut Camera, assets: &Assets) {
+        match self.visual {
+            ParticleVisual::Color(color, size, fading) => {
+                let position = (self.position - camera.position) * camera.scale;
+                let size = size * camera.scale;
+                let alpha = if fading { self.lifetime / 5.0 } else { 1.0 };
+                camera.graphics.draw_rectangle(
+                    speedy2d::shape::Rect::new(position - size / 2.0, position + size / 2.0),
+                    Color::from_rgba(color.r(), color.g(), color.b(), color.a() * alpha),
+                );
+            }
+            ParticleVisual::Texture(texture) => {
+                let size = Vec2::new(3.0, 4.0);
+                camera.draw_tile(
+                    self.position - size / 2.0,
+                    false,
+                    UVec2::new_x(texture as _),
+                    size.into_u32(),
+                    &assets.particles,
+                    false,
+                    false,
+                )
+            }
+        }
     }
 }
 

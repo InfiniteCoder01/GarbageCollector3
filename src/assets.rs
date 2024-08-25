@@ -4,6 +4,7 @@ use speedy2d::Graphics2D;
 pub struct Assets {
     pub font: speedy2d::font::Font,
     pub tileset: ImageHandle,
+    pub particles: ImageHandle,
 
     pub watch: WatchAssets,
     pub player: PlayerAssets,
@@ -11,6 +12,8 @@ pub struct Assets {
 
 pub struct PlayerAssets {
     pub image: ImageHandle,
+    pub image_flip: ImageHandle,
+    pub image_nowatch: ImageHandle,
 }
 
 pub struct WatchAssets {
@@ -23,6 +26,7 @@ impl Assets {
         Self {
             font: speedy2d::font::Font::new(include_bytes!("../assets/Minecraft.ttf")).unwrap(),
             tileset: load_image(graphics, include_bytes!("../assets/tileset.png")),
+            particles: load_image(graphics, include_bytes!("../assets/particles.png")),
 
             watch: WatchAssets {
                 image: load_image(graphics, include_bytes!("../assets/watch/image.png")),
@@ -30,6 +34,8 @@ impl Assets {
             },
             player: PlayerAssets {
                 image: load_image(graphics, include_bytes!("../assets/player/image.png")),
+                image_flip: load_image(graphics, include_bytes!("../assets/player/image_flip.png")),
+                image_nowatch: load_image(graphics, include_bytes!("../assets/player/image_nowatch.png")),
             },
         }
     }

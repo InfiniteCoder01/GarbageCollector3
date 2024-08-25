@@ -292,19 +292,28 @@ pub mod traits {
 pub struct PlayerStartPosition;
 
 #[derive(Clone, Debug)]
-pub struct EndOfTheLevel;
+pub struct EndOfTheLevel {
+    pub particle_timer: f32,
+}
+
+#[derive(Clone, Debug)]
+pub struct Void {
+    pub particle_timer: f32,
+}
 
 #[derive(Clone, Debug)]
 pub enum Entity {
     PlayerStartPosition(PlayerStartPosition),
     EndOfTheLevel(EndOfTheLevel),
+    Void(Void),
 }
 
 impl Entity {
     pub fn pivot(&self) -> FVec2 {
         match self {
             Self::PlayerStartPosition(_) => <FVec2 as VectorImpl>::new(0 as _, 0 as _),
-            Self::EndOfTheLevel(_) => <FVec2 as VectorImpl>::new(0 as _, 0 as _),
+            Self::EndOfTheLevel(_) => <FVec2 as VectorImpl>::new(0.5 as _, 0.5 as _),
+            Self::Void(_) => <FVec2 as VectorImpl>::new(0.5 as _, 0.5 as _),
         }
     }
 
@@ -312,6 +321,7 @@ impl Entity {
         match self {
             Self::PlayerStartPosition(_) => RenderMode::Ellipse,
             Self::EndOfTheLevel(_) => RenderMode::Ellipse,
+            Self::Void(_) => RenderMode::Ellipse,
         }
     }
 }
@@ -687,7 +697,7 @@ impl World {
     pub fn load() -> Self {
         Self {
             level_0: Level {
-                bg_color: <Color as ColorImpl>::from_hex(0x00BEFFFF),
+                bg_color: <Color as ColorImpl>::from_hex(0x9F9F9FFF),
                 pixel_size: <UVec2 as VectorImpl>::new(1056 as _, 368 as _),
                 world_depth: 0,
                 world_x: 0,
@@ -698,7 +708,11 @@ impl World {
                         EntityObject::new(Entity::PlayerStartPosition(PlayerStartPosition {
                         }), <FVec2 as VectorImpl>::new(16 as _, 288 as _), <UVec2 as VectorImpl>::new(16 as _, 16 as _)),
                         EntityObject::new(Entity::EndOfTheLevel(EndOfTheLevel {
+                            particle_timer: 0.0,
                         }), <FVec2 as VectorImpl>::new(1040 as _, 272 as _), <UVec2 as VectorImpl>::new(16 as _, 16 as _)),
+                        EntityObject::new(Entity::Void(Void {
+                            particle_timer: 0.0,
+                        }), <FVec2 as VectorImpl>::new(144 as _, 288 as _), <UVec2 as VectorImpl>::new(16 as _, 16 as _)),
                     }
                 },
                 ambient_decorations: AmbientDecorations {

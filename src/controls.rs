@@ -76,4 +76,10 @@ impl Controls {
             .get(&MouseButton::Left)
             .is_some_and(|pressed| *pressed)
     }
+
+    pub fn dialogue_next(&self) -> bool {
+        self.click()
+            || self.jpressed(VirtualKeyCode::Space)
+            || self.jpressed(VirtualKeyCode::Return)
+    }
 }

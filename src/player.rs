@@ -284,13 +284,21 @@ impl Player {
         (tl, size.into_u32())
     }
 
-    pub fn draw(&self, camera: &mut Camera, assets: &Assets) {
+    pub fn draw(&self, camera: &mut Camera, assets: &Assets, has_watch: bool) {
         camera.draw_tile(
             self.position,
             false,
             UVec2::new_x(self.frame as u32 + self.frames[self.animation].start),
             self.size,
-            &assets.player.image,
+            if has_watch {
+                if self.flip {
+                    &assets.player.image_flip
+                } else {
+                    &assets.player.image
+                }
+            } else {
+                &assets.player.image_nowatch
+            },
             self.flip,
             false,
         )
