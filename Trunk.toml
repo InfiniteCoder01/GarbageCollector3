@@ -1,12 +1,4 @@
  [build]
  target = "html/index.html"
  release = true
- # dist = "html"
- # manifest = "../Cargo.toml"
- public_url = "/"
-
- # [serve]
- # target = "static/index.html"
- # release = true
- # manifest = "Cargo.toml"
- # public_url = "/"
+ # public_url = "GarbageCollector3/"
