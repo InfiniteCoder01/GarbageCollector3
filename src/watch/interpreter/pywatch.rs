@@ -261,11 +261,12 @@ impl Frame {
         self.controls.typed_text.to_owned()
     }
 
-    pub fn string_to_vkc(&self, key: String) -> Option<VirtualKeyCode> {
+    pub fn string_to_vkc(&self, key: &str) -> Option<VirtualKeyCode> {
         use speedy2d::window::VirtualKeyCode;
-        match key.as_ref() {
+        match key {
             "enter" => Some(VirtualKeyCode::Return),
             "backspace" => Some(VirtualKeyCode::Backspace),
+            "delete" => Some(VirtualKeyCode::Delete),
             "left" => Some(VirtualKeyCode::Left),
             "right" => Some(VirtualKeyCode::Right),
             "up" => Some(VirtualKeyCode::Up),
@@ -280,20 +281,20 @@ impl Frame {
     }
 
     #[pymethod]
-    pub fn pressed(&self, key: String) -> bool {
-        if let Some(vkc) = self.string_to_vkc(key) {
-            self.controls.pressed(vkc)
+    pub fn pressed(&self, key: String, vm: &VirtualMachine) -> PyResult<bool> {
+        if let Some(vkc) = self.string_to_vkc(&key) {
+            Ok(self.controls.pressed(vkc))
         } else {
-            false
+            Err(vm.new_name_error(format!("Invalid key name: {:?}", &key), builtins::PyStr::new_ref(key, &vm.ctx)))
         }
     }
 
     #[pymethod]
-    pub fn jpressed(&self, key: String) -> bool {
-        if let Some(vkc) = self.string_to_vkc(key) {
-            self.controls.jpressed(vkc)
+    pub fn jpressed(&self, key: String, vm: &VirtualMachine) -> PyResult<bool> {
+        if let Some(vkc) = self.string_to_vkc(&key) {
+            Ok(self.controls.jpressed(vkc))
         } else {
-            false
+            Err(vm.new_name_error(format!("Invalid key name: {:?}", &key), builtins::PyStr::new_ref(key, &vm.ctx)))
         }
     }
 

@@ -21,8 +21,10 @@
 		<canvas id="canvas"></canvas>
     <script>
       window.addEventListener("keydown", function(event) {
-        console.log(event);
-        if (event.key == "v" && event.ctrlKey) {
+        if (event.which === 9 || event.keyCode === 9) {
+            event.preventDefault();
+        }
+        if (event.key === "v" && event.ctrlKey) {
           navigator.clipboard.readText().then(text => {
             canvas.dispatchEvent(new KeyboardEvent('keydown', {
               keyCode: 8,
