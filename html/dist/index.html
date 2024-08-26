@@ -15,7 +15,7 @@
 		</style>
     <base href="./" />
     
-<script type="module" nonce="JN4BCpfyufiOLHaAX2r17Q==">
+<script type="module" nonce="2IHLMfKkr6RS9Mo+WO4uKg==">
 async function __trunkInitializer(init, source, sourceSize, initializer) {
   if (initializer === undefined) {
     return await init(source);
@@ -86,10 +86,10 @@ async function __trunkInitWithProgress(init, source, sourceSize, initializer) {
 }
 
 
-import init, * as bindings from './garbage_collector3-86f291ead39cb410.js';
+import init, * as bindings from './garbage_collector3-f5a4fc74004d593a.js';
 import initializer from './502c3154680c8d7d-initializer.mjs';
 
-const wasm = await __trunkInitializer(init, './garbage_collector3-86f291ead39cb410_bg.wasm', 20388106, initializer());
+const wasm = await __trunkInitializer(init, './garbage_collector3-f5a4fc74004d593a_bg.wasm', 20389678, initializer());
 
 
 window.wasmBindings = bindings;
@@ -99,16 +99,18 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
 	
-<link rel="modulepreload" href="./garbage_collector3-86f291ead39cb410.js" crossorigin=anonymous integrity="sha384-6XUhuZA/jH0gYTiWsFc8aCffnCxrCcwBw79uEnkMrtSdRG3Q5mnt0LcxlUymYw91">
+<link rel="modulepreload" href="./garbage_collector3-f5a4fc74004d593a.js" crossorigin=anonymous integrity="sha384-ddgjp9+9x7CEh3U8oGr34Gv7BEL2uZDJfMK0mEOaC+Zu13bLTj8M1wpreG1C5tKm">
 <link rel="modulepreload" href="./502c3154680c8d7d-initializer.mjs" crossorigin=anonymous integrity="sha384-eKZrD+l1N75SxrjlTDZ0NSb28w8D2hfyoGfk50dK0V9H10qeNg2kERbTBeeChn3n">
-<link rel="preload" href="./garbage_collector3-86f291ead39cb410_bg.wasm" crossorigin=anonymous integrity="sha384-VSj/JAMHB6x7rn7mpE8hcENnvHgT35zZfR7WzEYRyoOmkuxQdPTJbR0XSRhMWt+Q" as="fetch" type="application/wasm"></head>
+<link rel="preload" href="./garbage_collector3-f5a4fc74004d593a_bg.wasm" crossorigin=anonymous integrity="sha384-f/Ct82M6ei+XJZ7nmW8L9kjzFuNSXzG53gcNgn6qqlQvLu2pT9IwFZd6qqhfEIV3" as="fetch" type="application/wasm"></head>
 
 	<body>
 		<canvas id="canvas"></canvas>
     <script>
       window.addEventListener("keydown", function(event) {
-        console.log(event);
-        if (event.key == "v" && event.ctrlKey) {
+        if (event.which === 9 || event.keyCode === 9) {
+            event.preventDefault();
+        }
+        if (event.key === "v" && event.ctrlKey) {
           navigator.clipboard.readText().then(text => {
             canvas.dispatchEvent(new KeyboardEvent('keydown', {
               keyCode: 8,
