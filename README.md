@@ -8,7 +8,7 @@ Or GitHub pages version: https://infinitecoder.org/GarbageCollector3
 
 Ideas:
 - More levels
-- Better terminal: 1) Cursor, move/delete -by-word, Home/End
+- Better terminal: 1) Cursor, move/delete -by-word, Home/End 2) Clear command 3) Colors?
 - Sounds
 - Send message to Messages app when easter egg found
 
