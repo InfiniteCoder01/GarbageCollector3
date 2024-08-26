@@ -328,7 +328,7 @@ impl WindowHandler for GarbageCollector3 {
                         )
                     }),
                 ),
-                10.0 * camera.scale,
+                12.0 * camera.scale,
                 speedy2d::font::TextOptions::new()
                     .with_wrap_to_width(80.0 * camera.scale, speedy2d::font::TextAlignment::Left),
             );

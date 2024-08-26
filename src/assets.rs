@@ -24,7 +24,7 @@ pub struct WatchAssets {
 impl Assets {
     pub fn load(graphics: &mut Graphics2D) -> Self {
         Self {
-            font: speedy2d::font::Font::new(include_bytes!("../assets/Minecraft.ttf")).unwrap(),
+            font: speedy2d::font::Font::new(include_bytes!("../assets/712_serif.ttf")).unwrap(),
             tileset: load_image(graphics, include_bytes!("../assets/tileset.png")),
             particles: load_image(graphics, include_bytes!("../assets/particles.png")),
 

@@ -16,7 +16,7 @@ def frame(frame):
     global buffer
     global history
     global history_item
-    font_size = 7.0
+    font_size = 6.0
 
     while len(buffer) > (128.0 - 16.0) / font_size:
         buffer.pop(0)

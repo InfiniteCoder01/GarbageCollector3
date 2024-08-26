@@ -80,6 +80,8 @@ watch.Frame.draw_text(position: vec.Vector2, text: str, size: float, color: int)
 # with the specified size (which matches character's height). Color is a hex representation of a color without an alpha channel (0xff0000 for red, 0x0000ff for blue, 0xffffff for white)
 ```
 
+Note: font used to render text is 7:12 Serif by [Christian Munk] (https://www.1001fonts.com/users/christianmunk/) (monospace)
+
 There is also `ui` module, which aims to simplify creation of apps. It provides the following functionality:
 ```
 ui.icons # A set of default icons, includes: "cross"
@@ -97,3 +99,4 @@ import watch; watch.run('from vec import Vector2\nclass Test:\n  def frame(self,
 Code is licensed under MIT license
 Except apps/vec.py, which is licensed under https://github.com/larryhastings/vec/blob/master/LICENSE
 Assets (everything inside assets and apps/assets directories) are licensed under Creative Commons Zero v1.0 Universal
+Except assets/712_serif.ttf, which is `The FontStruction “7:12 Serif” (http://fontstruct.com/fontstructions/show/243645) by “CMunk” is licensed under a Creative Commons Attribution Share Alike license (http://creativecommons.org/licenses/by-sa/3.0/).
